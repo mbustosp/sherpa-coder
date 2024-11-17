@@ -19,16 +19,22 @@ export function activate(context: vscode.ExtensionContext) {
 			path.join(context.extensionPath, 'dist', 'webview', 'index.js')
 		);
 		const scriptUri = panel.webview.asWebviewUri(scriptPathOnDisk);
+		const cssPathOnDisk = vscode.Uri.file(
+  			path.join(context.extensionPath, 'dist', 'webview', 'styles', 'globals.css')
+  		);
+  		const cssUri = panel.webview.asWebviewUri(cssPathOnDisk);
+  
 
 		panel.webview.html = `<!DOCTYPE html>
 			<html>
 				<head>
 					<meta charset="UTF-8">
 					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+					<link rel="stylesheet" href="${cssUri}">
 				</head>
 				<body>
 					<div id="root"></div>
-					<script src="${scriptUri}"></script>
+					<script type="module" src="${scriptUri}"></script>
 				</body>
 			</html>`;
 	});
