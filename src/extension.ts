@@ -64,11 +64,11 @@ class SherpaChatViewProvider implements vscode.WebviewViewProvider {
 export function activate(context: vscode.ExtensionContext) {
     const chatViewProvider = SherpaChatViewProvider.getInstance(context.extensionUri, context);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider('sherpa-coder.welcomeView', chatViewProvider)
+        vscode.window.registerWebviewViewProvider('sherpa-coder.welcomeView', chatViewProvider, { webviewOptions: { retainContextWhenHidden: true } })
     );
 
     const eventHandler = VSCodeEventHandler.getInstance(context);
     context.subscriptions.push(vscode.Disposable.from(eventHandler));
 }
 
-export function deactivate() {}
+export function deactivate() { }

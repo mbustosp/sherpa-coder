@@ -18,16 +18,9 @@ export function useContextMaster() {
   const selectedAccount = accounts.find(account => account.id === selectedAccountId) || null;
 
   React.useEffect(() => {
-    const state = vscode.getState();
-    if (state) {
-      setAccounts(state.accounts || []);
-      setSelectedAccountId(state.selectedAccountId || null);
-    }
-
     sendMessage('getAccounts', {});
 
     const messageHandler = (event: MessageEvent) => {
-      // Request accounts when component mounts
       const message = event.data;
       switch (message.command) {
         case 'updateAccounts':
@@ -42,10 +35,11 @@ export function useContextMaster() {
           break;
       }
     };
-
     window.addEventListener('message', messageHandler);
-    return () => window.removeEventListener('message', messageHandler);
-  }, [sendMessage]);
+    return () => {
+      window.removeEventListener('message', messageHandler);
+    };
+  }, []);
 
   const handleUpload = () => {
     setIsUploading(true);
