@@ -29,7 +29,8 @@ export default [
                     target: 'es2020',
                     sourceMap: true,
                     moduleResolution: 'node'
-                }
+                },
+                include: ['src/**/*.ts', '!src/webview/**']
             }),
             postcss({
                 extract: true,
@@ -38,8 +39,7 @@ export default [
             resolve(),
             commonjs()
         ]
-    },
-    {
+    },    {
         input: 'src/webview/index.tsx',
         output: {
             file: 'dist/webview/index.js',

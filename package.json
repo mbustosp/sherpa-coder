@@ -11,10 +11,41 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
-    "commands": [
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sherpa-coder",
+          "title": "Sherpa Coder",
+          "icon": "resources/sherpa.svg"
+        }
+      ]
+    },
+    "views": {
+      "sherpa-coder": [
+        {
+          "type": "webview",
+          "id": "sherpa-coder.welcomeView",
+          "name": "Chat",
+          "icon": "resources/sherpa.svg"
+        }
+      ]
+    },
+    "walkthroughs": [
       {
-        "command": "extension.showWebview",
-        "title": "Show React Webview"
+        "id": "sherpa-coder.welcome",
+        "title": "Get Started with Sherpa Coder",
+        "description": "Let's set up your AI coding assistant",
+        "steps": [
+          {
+            "id": "setup.apikey",
+            "title": "Set up your OpenAI API Key",
+            "description": "Configure your OpenAI account to start using Sherpa Coder",
+            "media": {
+              "image": "resources/setup-apikey.png",
+              "altText": "OpenAI API key setup"
+            }
+          }
+        ]
       }
     ]
   },

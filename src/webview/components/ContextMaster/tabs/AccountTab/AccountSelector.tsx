@@ -1,4 +1,3 @@
-
 import { Trash2 } from 'lucide-react'
 import { Account } from "../../../../types"
 import React from "react";
@@ -15,7 +14,7 @@ interface AccountSelectorProps {
   accounts: Account[];
   selectedAccountId: string | null;
   onAccountChange: (accountId: string) => void;
-  onDeleteAccount: () => void;
+  onDeleteAccount: (accountId: string) => void;
 }
 
 export function AccountSelector({
@@ -42,7 +41,7 @@ export function AccountSelector({
       <Button 
         variant="secondary" 
         disabled={!selectedAccountId} 
-        onClick={onDeleteAccount}
+        onClick={() => selectedAccountId && onDeleteAccount(selectedAccountId)}
       >
         <Trash2 className="w-4 h-4 mr-2" />
         Delete Selected Account

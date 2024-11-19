@@ -17,7 +17,7 @@ export default function ContextMaster() {
   } = useContextMasterContext()
 
   return (
-    <Card className={`w-full mx-auto transition-all duration-300 ease-in-out ${isFullScreen ? 'fixed inset-0 z-50 m-0 max-w-none rounded-none' : 'max-w-3xl'}`}>
+    <Card className={`w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none'}`}>
       <Header isFullScreen={isFullScreen} onToggleFullScreen={toggleFullScreen} />
       <CardContent>
         <Tabs defaultValue="chat" className="w-full">

@@ -9,7 +9,8 @@ export function ChatTab() {
     currentConversation, 
     selectedAccount, 
     createNewConversation,
-    setCurrentConversation 
+    setCurrentConversation,
+    handleSendChatMessage
   } = useContextMasterContext()
 
   return (
@@ -21,7 +22,7 @@ export function ChatTab() {
         onSelectConversation={setCurrentConversation}
       />
       <ChatWindow />
-      <MessageInput />
+      <MessageInput sendMessage={handleSendChatMessage} />
     </div>
   )
 }

@@ -23,7 +23,29 @@ export function useContextMaster() {
       setAccounts(state.accounts || []);
       setSelectedAccountId(state.selectedAccountId || null);
     }
-  }, []);
+
+    sendMessage('getAccounts', {});
+
+    const messageHandler = (event: MessageEvent) => {
+      // Request accounts when component mounts
+      const message = event.data;
+      switch (message.command) {
+        case 'updateAccounts':
+          setAccounts(message.accounts);
+          break;
+        case 'updateConversation':
+          setCurrentConversation(message.conversation);
+          break;
+        case 'uploadComplete':
+          setIsUploading(false);
+          setDocsGenerated(true);
+          break;
+      }
+    };
+
+    window.addEventListener('message', messageHandler);
+    return () => window.removeEventListener('message', messageHandler);
+  }, [sendMessage]);
 
   const handleUpload = () => {
     setIsUploading(true);
@@ -33,6 +55,7 @@ export function useContextMaster() {
         if (prev >= 100) {
           clearInterval(interval);
           setIsUploading(false);
+          setDocsGenerated(true);
           return 0;
         }
         return prev + 10;
@@ -64,7 +87,65 @@ export function useContextMaster() {
     sendMessage('newConversation', { conversation: newConversation });
   };
 
-  // Rest of the handlers...
+  const handleCreateAccount = () => {
+    if (!newAccountName || !newAccountApiKey) return;
+
+    const newAccount: Account = {
+      id: String(accounts.length + 1),
+      name: newAccountName,
+      apiKey: newAccountApiKey,
+      conversations: [],
+      assistants: [],
+      models: []
+    };
+
+    setAccounts([...accounts, newAccount]);
+    setNewAccountName("");
+    setNewAccountApiKey("");
+    sendMessage('createAccount', { account: newAccount });
+  };
+
+  const handleDeleteAccount = (accountId: string) => {
+    setAccounts(accounts.filter(account => account.id !== accountId));
+    if (selectedAccountId === accountId) {
+      setSelectedAccountId(null);
+      setCurrentConversation(null);
+    }
+    sendMessage('deleteAccount', { accountId });
+  };
+
+  const onSelectConversation = (conversationId: string) => {
+    if (!selectedAccount) return;
+
+    const conversation = selectedAccount.conversations.find(conv => conv.id === conversationId);
+    if (conversation) {
+      setCurrentConversation(conversation);
+      sendMessage('selectConversation', { conversationId });
+    }
+  };
+
+  const setCurrentConversationR = (conversation: Conversation | null) => {
+    setCurrentConversation(conversation);
+    if (conversation) {
+      sendMessage('updateConversation', { conversation });
+    }
+  };
+
+  const sendMessageToExtension = (command: string, payload: any) => {
+    sendMessage(command, payload);
+  };
+
+  const handleSendChatMessage = (message: string) => {
+    if (!currentConversation || !selectedAccount) return;
+    
+    sendMessage('sendChatMessage', {
+      accountId: selectedAccount.id,
+      conversationId: currentConversation.id,
+      message,
+      assistant: selectedAssistant,
+      model: selectedModel
+    });
+  };
 
   return {
     accounts,
@@ -81,11 +162,17 @@ export function useContextMaster() {
     selectedAccount,
     handleUpload,
     createNewConversation,
+    handleCreateAccount,
+    handleDeleteAccount,
+    onSelectConversation,
+    setCurrentConversation: setCurrentConversationR,
     setSelectedAccountId,
     setSelectedAssistant,
     setSelectedModel,
     setNewAccountName,
     setNewAccountApiKey,
-    toggleFullScreen: () => setIsFullScreen(!isFullScreen)
+    toggleFullScreen: () => setIsFullScreen(!isFullScreen),
+    sendMessageToExtension,
+    handleSendChatMessage
   };
 }
