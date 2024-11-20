@@ -3,13 +3,49 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { HelpCircle } from 'lucide-react'
 import React from "react";
 
+interface Assistant {
+  id: string;
+  object: string;
+  created_at: number;
+  name: string;
+  description: string | null;
+  model: string;
+  instructions: string;
+  tools: Array<{
+      type: string;
+      file_search?: {
+          ranking_options: {
+              ranker: string;
+              score_threshold: number;
+          };
+      };
+  }>;
+  top_p: number;
+  temperature: number;
+  tool_resources: {
+      file_search?: {
+          vector_store_ids: string[];
+      };
+  };
+  metadata: Record<string, any>;
+  response_format: string | { type: string };
+}
+
+interface Model {
+  id: string;
+  object: string;
+  created: number;
+  owned_by: string;
+}
+
 interface AssistantSectionProps {
   selectedAssistant: string;
   selectedModel: string;
-  assistants: string[];
-  models: string[];
+  assistants: Assistant[];
+  models: Model[];
   onAssistantChange: (value: string) => void;
   onModelChange: (value: string) => void;
+  disabled?: boolean;
 }
 
 export function AssistantSection({
@@ -18,7 +54,8 @@ export function AssistantSection({
   assistants,
   models,
   onAssistantChange,
-  onModelChange
+  onModelChange,
+  disabled = false
 }: AssistantSectionProps) {
   return (
     <div className="grid grid-cols-2 gap-4">
@@ -36,13 +73,13 @@ export function AssistantSection({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Select value={selectedAssistant} onValueChange={onAssistantChange}>
+        <Select value={selectedAssistant} onValueChange={onAssistantChange} disabled={disabled}>
           <SelectTrigger>
             <SelectValue placeholder="Select Assistant" />
           </SelectTrigger>
           <SelectContent>
             {assistants?.map((assistant) => (
-              <SelectItem key={assistant} value={assistant}>{assistant}</SelectItem>
+              <SelectItem key={assistant.id} value={assistant.id}>{assistant.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -61,17 +98,17 @@ export function AssistantSection({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Select value={selectedModel} onValueChange={onModelChange}>
+        <Select value={selectedModel} onValueChange={onModelChange} disabled={disabled}>
           <SelectTrigger>
             <SelectValue placeholder="Select Model" />
           </SelectTrigger>
           <SelectContent>
             {models?.map((model) => (
-              <SelectItem key={model} value={model}>{model}</SelectItem>
+              <SelectItem key={model.id} value={model.id}>{model.id}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
     </div>
-  )
+  );
 }

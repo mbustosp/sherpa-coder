@@ -4,6 +4,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import replace from '@rollup/plugin-replace';
 import postcss from "rollup-plugin-postcss";
 import alias from '@rollup/plugin-alias';
+import json from '@rollup/plugin-json';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import path from 'path';
@@ -37,7 +38,8 @@ export default [
                 minimize: true,
             }),
             resolve(),
-            commonjs()
+            commonjs(),
+            json()
         ]
     },    {
         input: 'src/webview/index.tsx',
@@ -73,6 +75,7 @@ export default [
                 extensions: ['.js', '.jsx', '.ts', '.tsx']
             }),
             commonjs(),
+            json()
         ]
     },
     {

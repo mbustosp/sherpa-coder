@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, ExternalLink } from 'lucide-react'
@@ -10,6 +9,7 @@ interface AccountCreatorProps {
   onNameChange: (value: string) => void;
   onApiKeyChange: (value: string) => void;
   onCreateAccount: () => void;
+  disabled?: boolean;
 }
 
 export function AccountCreator({
@@ -17,7 +17,8 @@ export function AccountCreator({
   newAccountApiKey,
   onNameChange,
   onApiKeyChange,
-  onCreateAccount
+  onCreateAccount,
+  disabled
 }: AccountCreatorProps) {
   return (
     <div className="space-y-4">
@@ -26,6 +27,7 @@ export function AccountCreator({
         placeholder="New Account Name" 
         value={newAccountName}
         onChange={(e) => onNameChange(e.target.value)}
+        disabled={disabled}
       />
       <div>
         <Input 
@@ -33,6 +35,7 @@ export function AccountCreator({
           placeholder="OpenAI API Key" 
           value={newAccountApiKey}
           onChange={(e) => onApiKeyChange(e.target.value)}
+          disabled={disabled}
         />
         <p className="text-xs text-muted-foreground mt-1">
           You can obtain your OpenAI API key from the{" "}
@@ -47,7 +50,10 @@ export function AccountCreator({
           </a>
         </p>
       </div>
-      <Button onClick={onCreateAccount}>
+      <Button 
+        onClick={onCreateAccount} 
+        disabled={disabled || !newAccountName || !newAccountApiKey}
+      >
         <Plus className="w-4 h-4 mr-2" />
         Create New Account
       </Button>

@@ -1,17 +1,24 @@
 export type Account = {
   id: string;
   name: string;
-  apiKey: string;
+  apiKey?: string;
   assistants: string[];
   models: string[];
   conversations: Conversation[];
 }
 
+export interface Message {
+  id: string
+  content: string
+  sender: 'user' | 'assistant'
+  timestamp: string
+}
+
 export type Conversation = {
-  id: number;
+  id: string;
   title: string;
   date: string;
-  messages: number;
+  messages: Message[];
   lastMessage: string;
 }
 

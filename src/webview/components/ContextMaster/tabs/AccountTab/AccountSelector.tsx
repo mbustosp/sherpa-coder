@@ -15,19 +15,21 @@ interface AccountSelectorProps {
   selectedAccountId: string | null;
   onAccountChange: (accountId: string) => void;
   onDeleteAccount: (accountId: string) => void;
+  disabled?: boolean;
 }
 
 export function AccountSelector({
   accounts,
   selectedAccountId,
   onAccountChange,
-  onDeleteAccount
+  onDeleteAccount,
+  disabled = false
 }: AccountSelectorProps) {
   return (
     <div className="space-y-4">
       <div>
         <h4 className="text-sm font-semibold mb-2">Select Existing Account</h4>
-        <Select value={selectedAccountId || ''} onValueChange={onAccountChange}>
+        <Select value={selectedAccountId || ''} onValueChange={onAccountChange} disabled={disabled}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Choose an account" />
           </SelectTrigger>
@@ -40,7 +42,7 @@ export function AccountSelector({
       </div>
       <Button 
         variant="secondary" 
-        disabled={!selectedAccountId} 
+        disabled={!selectedAccountId || disabled} 
         onClick={() => selectedAccountId && onDeleteAccount(selectedAccountId)}
       >
         <Trash2 className="w-4 h-4 mr-2" />

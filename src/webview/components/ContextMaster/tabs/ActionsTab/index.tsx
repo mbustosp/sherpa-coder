@@ -16,7 +16,10 @@ export function ActionsTab() {
     uploadProgress,
     docsGenerated,
     handleUpload,
-    handleGenerateDocs
+    handleGenerateDocs,
+    isClientInitialized,
+    assistants,
+    models,
   } = useContextMasterContext()
 
   return (
@@ -24,10 +27,11 @@ export function ActionsTab() {
       <AssistantSection 
         selectedAssistant={selectedAssistant}
         selectedModel={selectedModel}
-        assistants={selectedAccount?.assistants || []}
-        models={selectedAccount?.models || []}
+        assistants={assistants || []}
+        models={models || []}
         onAssistantChange={setSelectedAssistant}
         onModelChange={setSelectedModel}
+        disabled={!isClientInitialized}
       />
       <Separator />
       <DocumentationSection 
@@ -36,6 +40,7 @@ export function ActionsTab() {
         docsGenerated={docsGenerated}
         onGenerateDocs={handleGenerateDocs}
         onUpload={handleUpload}
+        disabled={!isClientInitialized}
       />
     </div>
   )

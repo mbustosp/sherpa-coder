@@ -4,11 +4,11 @@ import { MessageSquare } from 'lucide-react'
 import React, { useRef } from "react"
 
 interface MessageInputProps {
-
   sendMessage: (message: string) => void;
+  disabled?: boolean;
 }
 
-export function MessageInput({ sendMessage }: MessageInputProps) {
+export function MessageInput({ sendMessage, disabled = false }: MessageInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSendMessage = (message: string) => {
@@ -39,8 +39,9 @@ export function MessageInput({ sendMessage }: MessageInputProps) {
         className="flex-grow"
         onKeyPress={handleInputKeyPress}
         ref={inputRef}
+        disabled={disabled}
       />
-      <Button id="sendButton" onClick={handleButtonClick}>
+      <Button id="sendButton" onClick={handleButtonClick} disabled={disabled}>
         <MessageSquare className="w-4 h-4 mr-2" />
         Send
       </Button>

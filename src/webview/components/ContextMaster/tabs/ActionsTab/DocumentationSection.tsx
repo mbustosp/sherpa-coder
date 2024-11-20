@@ -9,6 +9,7 @@ interface DocumentationSectionProps {
   docsGenerated: boolean;
   onGenerateDocs: () => void;
   onUpload: () => void;
+  disabled?: boolean;
 }
 
 export function DocumentationSection({
@@ -16,7 +17,8 @@ export function DocumentationSection({
   uploadProgress,
   docsGenerated,
   onGenerateDocs,
-  onUpload
+  onUpload,
+  disabled = false
 }: DocumentationSectionProps) {
   return (
     <div>
@@ -30,7 +32,7 @@ export function DocumentationSection({
           <p className="text-xs text-muted-foreground mb-2">
             Creates a markdown file with the project source code, excluding files in .gitignore.
           </p>
-          <Button onClick={onGenerateDocs}>
+          <Button onClick={onGenerateDocs} disabled={disabled}>
             <FileUp className="w-4 h-4 mr-2" />
             Generate Docs
           </Button>
@@ -42,7 +44,7 @@ export function DocumentationSection({
           </p>
           <Button 
             onClick={onUpload} 
-            disabled={!docsGenerated || isUploading}
+            disabled={!docsGenerated || isUploading || disabled}
           >
             <Upload className="w-4 h-4 mr-2" />
             Upload to Assistant

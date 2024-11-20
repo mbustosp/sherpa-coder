@@ -32,7 +32,8 @@ class SherpaChatViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.options = {
             enableScripts: true,
             localResourceRoots: [
-                vscode.Uri.file(path.join(this._extensionUri.fsPath, 'dist', 'webview'))
+                vscode.Uri.file(path.join(this._extensionUri.fsPath, 'dist', 'webview')),
+                vscode.Uri.file(path.join(this._extensionUri.fsPath, 'node_modules'))
             ]
         };
 
@@ -46,12 +47,18 @@ class SherpaChatViewProvider implements vscode.WebviewViewProvider {
         );
         const cssUri = webviewView.webview.asWebviewUri(cssPathOnDisk);
 
+        const katexCssPathOnDisk = vscode.Uri.file(
+            path.join(this._extensionUri.fsPath, 'node_modules', 'katex', 'dist', 'katex.min.css')
+        );
+        const katexCssUri = webviewView.webview.asWebviewUri(katexCssPathOnDisk);
+
         webviewView.webview.html = `<!DOCTYPE html>
             <html>
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <link rel="stylesheet" href="${cssUri}">
+                    <link rel="stylesheet" href="${katexCssUri}">
                 </head>
                 <body>
                     <div id="root"></div>
