@@ -22,6 +22,13 @@ export function useContextMaster() {
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = React.useState(false);
+  const [isGeneratingDocs, setIsGeneratingDocs] = React.useState(false);
+  const [generatedDocsInfo, setGeneratedDocsInfo] = React.useState<{
+    path: string;
+    filename: string;
+    size: number;
+    success: boolean;
+  } | null>(null);
 
   const selectedAccount =
     accounts.find((account) => account.id === selectedAccountId) || null;
@@ -47,6 +54,16 @@ export function useContextMaster() {
           console.debug("Upload completed");
           setIsUploading(false);
           setDocsGenerated(true);
+          setUploadProgress(100);
+          new Promise((resolve) =>
+            setTimeout(() => {
+              setIsLoading(false);
+              setIsGeneratingDocs(false);
+              setIsUploading(false);
+              setUploadProgress(0);
+              resolve(true);
+            }, 3000)
+          );
           break;
         case "updateLists":
           console.log("Updating lists:", {
@@ -61,10 +78,31 @@ export function useContextMaster() {
           console.debug("Error received:", message.message);
           setError(message.message);
           setIsLoading(false);
+          setIsGeneratingDocs(false);
+          setIsUploading(false);
+          setUploadProgress(0);
           break;
         case "updateTypingStatus":
           setIsAssistantTyping(message.isTyping);
           setIsLoading(message.isTyping);
+          break;
+        case "docsGenerated":
+          console.debug("Docs generated:", message);
+          if (message.success) {
+            setGeneratedDocsInfo({
+              path: message.path,
+              filename: message.filename,
+              size: message.size,
+              success: message.success,
+            });
+            setDocsGenerated(true);
+          } else {
+            setError("Failed to generate docs");
+          }
+          setIsLoading(false);
+          setIsUploading(false);
+          setUploadProgress(0);
+          setIsGeneratingDocs(false);
           break;
       }
     };
@@ -93,23 +131,26 @@ export function useContextMaster() {
     }
   }, [models]);
 
+  React.useEffect(() => {
+    if (selectedAssistant) {
+      sendMessage("updateAssistant", { assistantId: selectedAssistant });
+    }
+  }, [selectedAssistant]);
+
+  React.useEffect(() => {
+    if (selectedModel) {
+      sendMessage("updateModel", { modelId: selectedModel });
+    }
+  }, [selectedModel]);
+
   const isClientInitialized =
     models?.length && selectedAccountId !== null && !isLoading;
 
   const handleUpload = () => {
     setIsUploading(true);
     sendMessage("upload", { accountId: selectedAccountId });
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploading(false);
-          setDocsGenerated(true);
-          return 0;
-        }
-        return prev + 10;
-      });
-    }, 500);
+    setUploadProgress(0);
+    setIsUploading(true);
   };
 
   const createNewConversation = () => {
@@ -135,6 +176,17 @@ export function useContextMaster() {
     sendMessage("newConversation", { conversation: newConversation });
   };
 
+  const handleGenerateDocs = () => {
+    if (!selectedAccount) return;
+
+    setIsGeneratingDocs(true);
+    sendMessage("generateDocs", {
+      accountId: selectedAccount.id,
+      assistantId: selectedAssistant,
+      modelId: selectedModel,
+    });
+  };
+
   const handleDeleteConversation = (conversationId: string) => {
     if (!selectedAccount) return;
 
@@ -155,9 +207,9 @@ export function useContextMaster() {
       setCurrentConversation(null);
     }
 
-    sendMessage("deleteConversation", { 
+    sendMessage("deleteConversation", {
       accountId: selectedAccount.id,
-      conversationId 
+      conversationId,
     });
   };
 
@@ -223,6 +275,11 @@ export function useContextMaster() {
     setError(null);
   };
 
+  const dismissDocsGenerated = () => {
+    setDocsGenerated(false);
+    setGeneratedDocsInfo(null);
+  };
+
   return {
     accounts,
     selectedAccountId,
@@ -231,6 +288,7 @@ export function useContextMaster() {
     isUploading,
     uploadProgress,
     docsGenerated,
+    generatedDocsInfo,
     isFullScreen,
     selectedAssistant,
     selectedModel,
@@ -242,6 +300,7 @@ export function useContextMaster() {
     isClientInitialized,
     isLoading,
     isAssistantTyping,
+    isGeneratingDocs,
     setSelectedAccountId,
     setSelectedAssistant,
     setSelectedModel,
@@ -258,5 +317,7 @@ export function useContextMaster() {
     sendMessageToExtension: sendMessage,
     handleSendChatMessage,
     dismissError,
+    handleGenerateDocs,
+    dismissDocsGenerated,
   };
 }

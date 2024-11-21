@@ -2,6 +2,10 @@ import * as vscode from "vscode";
 import { AccountManager } from "./AccountManager";
 import OpenAI from "openai";
 import { Conversation, Message } from "@/types";
+import * as fsProm from "fs/promises";
+import * as fs from "fs";
+import * as path from "path";
+import ignore from "ignore";
 
 export class VSCodeEventHandler {
   private static instance: VSCodeEventHandler;
@@ -10,6 +14,9 @@ export class VSCodeEventHandler {
   private webviewView: vscode.WebviewView | undefined;
   private context: vscode.ExtensionContext;
   private openaiClient: OpenAI | null = null;
+  private _currentAssistant: string | undefined;
+  private _currentModel: string | undefined;
+  private _generatedDocPath: string | undefined;
 
   private constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -51,7 +58,10 @@ export class VSCodeEventHandler {
         this.deleteAccount(message.payload.accountId);
         break;
       case "deleteConversation":
-        this.deleteConversation(message.payload.accountId, message.payload.conversationId);
+        this.deleteConversation(
+          message.payload.accountId,
+          message.payload.conversationId
+        );
         break;
       case "getAccounts":
         this.getAccounts();
@@ -65,9 +75,33 @@ export class VSCodeEventHandler {
       case "sendChatMessage":
         this.handleChatMessage(message.payload);
         break;
+      case "generateDocs":
+        this.generateDocs(message.payload);
+        break;
+      case "updateAssistant":
+        this._currentAssistant = message.payload.assistantId;
+        console.log(
+          `[EventHandler] Updated current assistant: ${this._currentAssistant}`
+        );
+        break;
+      case "updateModel":
+        this._currentModel = message.payload.modelId;
+        console.log(
+          `[EventHandler] Updated current model: ${this._currentModel}`
+        );
+        break;
       default:
         console.log(`Unhandled message type: ${message.type}`, message.payload);
     }
+  }
+
+  // Getters for the states
+  public getCurrentAssistant(): string | undefined {
+    return this._currentAssistant;
+  }
+
+  public getCurrentModel(): string | undefined {
+    return this._currentModel;
   }
 
   private async initializeOpenAIClient(accountId: string): Promise<void> {
@@ -139,7 +173,9 @@ export class VSCodeEventHandler {
     }
 
     try {
-      console.log(`[Chat] Getting conversation for ID: ${payload.conversationId}`);
+      console.log(
+        `[Chat] Getting conversation for ID: ${payload.conversationId}`
+      );
       let conversation = await this.getConversation(
         payload.accountId,
         payload.conversationId
@@ -160,18 +196,20 @@ export class VSCodeEventHandler {
       this.sendMessageToWebview("updateConversation", { conversation });
 
       console.log(`[Chat] Creating new thread with previous messages`);
-      const threadMessages = conversation.messages.map(msg => ({
+      const threadMessages = conversation.messages.map((msg) => ({
         role: msg.sender as "user" | "assistant",
-        content: msg.content
+        content: msg.content,
       }));
-      
+
       const thread = await this.openaiClient.beta.threads.create({
-        messages: threadMessages
+        messages: threadMessages,
       });
-      
+
       console.log(`[Chat] Created thread with ID: ${thread.id}`);
 
-      console.log(`[Chat] Starting thread run with assistant: ${payload.assistant}`);
+      console.log(
+        `[Chat] Starting thread run with assistant: ${payload.assistant}`
+      );
       const run = await this.openaiClient.beta.threads.runs.create(thread.id, {
         assistant_id: payload.assistant,
         model: payload.model,
@@ -225,8 +263,128 @@ export class VSCodeEventHandler {
       this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
     }
   }
+
+  private async generateDocs(payload: {
+    accountId: string;
+    assistantId: string;
+    modelId: string;
+  }): Promise<void> {
+    console.log("[EventHandler] Starting documentation generation");
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+
+    if (!workspaceFolders) {
+      this.sendMessageToWebview("error", {
+        message: "No workspace folder open",
+      });
+      return;
+    }
+
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    const sherpaDir = path.join(rootPath, ".sherpa-files");
+    const outputFileName = path.join(sherpaDir, "project-documentation.md");
+
+    try {
+      // Create .sherpa-files directory
+      await vscode.workspace.fs.createDirectory(vscode.Uri.file(sherpaDir));
+
+      // Read .gitignore if exists
+      let gitignore = "";
+      try {
+        gitignore = await fsProm.readFile(
+          path.join(rootPath, ".gitignore"),
+          "utf8"
+        );
+      } catch (e) {
+        gitignore = "";
+      }
+
+      const ig = ignore()
+        .add(gitignore)
+        .add([
+          ".sherpa-files",
+          "package-lock.json",
+          "yarn.lock",
+          ".git",
+          "node_modules",
+        ]);
+
+      let markdown = "# Project Documentation\n\n## Directory Structure\n\n";
+
+      const getFiles = async (dir: string, prefix = ""): Promise<string> => {
+        let content = "";
+        const entries = await vscode.workspace.fs.readDirectory(
+          vscode.Uri.file(dir)
+        );
+
+        for (const [name, type] of entries) {
+          const relativePath = path.relative(rootPath, path.join(dir, name));
+          if (ig.ignores(relativePath)) continue;
+
+          const fullPath = path.join(dir, name);
+          if (type === vscode.FileType.Directory) {
+            content += `${prefix}📁 ${name}/\n`;
+            content += await getFiles(fullPath, `${prefix}  `);
+          } else {
+            content += `${prefix}📄 ${name}\n`;
+          }
+        }
+        return content;
+      };
+
+      markdown += await getFiles(rootPath);
+      markdown += "\n## Source Code\n\n";
+
+      const processFile = async (filePath: string): Promise<void> => {
+        const content = await vscode.workspace.fs.readFile(
+          vscode.Uri.file(filePath)
+        );
+        const extension = path.extname(filePath).slice(1);
+        const relativePath = path.relative(rootPath, filePath);
+        markdown += `### ${relativePath}\n\n\`\`\`${extension}\n${content.toString()}\n\`\`\`\n\n`;
+      };
+
+      const processDirectory = async (dir: string): Promise<void> => {
+        const entries = await vscode.workspace.fs.readDirectory(
+          vscode.Uri.file(dir)
+        );
+        for (const [name, type] of entries) {
+          const relativePath = path.relative(rootPath, path.join(dir, name));
+          if (ig.ignores(relativePath)) continue;
+
+          const fullPath = path.join(dir, name);
+          if (type === vscode.FileType.Directory) {
+            await processDirectory(fullPath);
+          } else {
+            await processFile(fullPath);
+          }
+        }
+      };
+
+      await processDirectory(rootPath);
+      const fileContent = Buffer.from(markdown);
+      const outputFileUri = vscode.Uri.file(outputFileName);
+      await vscode.workspace.fs.writeFile(outputFileUri, fileContent);
+
+      // Store the generated file path and URI
+      this._generatedDocPath = outputFileUri.fsPath;
+
+      this.sendMessageToWebview("docsGenerated", {
+        path: sherpaDir,
+        filename: "project-documentation.md",
+        size: fileContent.length,
+        success: true,
+      });
+    } catch (error) {
+      console.error("[EventHandler] Error generating documentation:", error);
+      this.sendMessageToWebview("error", {
+        message: "Error generating documentation: " + (error as Error).message,
+      });
+    }
+  }
+
   private async getConversation(
-    accountId: string,    conversationId: string
+    accountId: string,
+    conversationId: string
   ): Promise<Conversation> {
     const accounts = this.accountManager.getAccounts();
     const account = accounts.find((acc) => acc.id === accountId);
@@ -251,47 +409,67 @@ export class VSCodeEventHandler {
     accountId: string,
     conversation: Conversation
   ): Promise<void> {
-    console.log(`[Conversation Handler] Updating conversation for account ID: ${accountId}`, conversation);
+    console.log(
+      `[Conversation Handler] Updating conversation for account ID: ${accountId}`,
+      conversation
+    );
     const accounts = this.accountManager.getAccounts();
     const accountIndex = accounts.findIndex((acc) => acc.id === accountId);
 
     if (accountIndex !== -1) {
-      console.log(`[Conversation Handler] Found account at index: ${accountIndex}`);
+      console.log(
+        `[Conversation Handler] Found account at index: ${accountIndex}`
+      );
       const conversationIndex = accounts[accountIndex].conversations.findIndex(
         (conv) => conv.id === conversation.id
       );
 
       if (conversationIndex !== -1) {
-        console.log(`[Conversation Handler] Updating existing conversation at index: ${conversationIndex}`);
+        console.log(
+          `[Conversation Handler] Updating existing conversation at index: ${conversationIndex}`
+        );
         accounts[accountIndex].conversations[conversationIndex] = conversation;
       } else {
-        console.log(`[Conversation Handler] Adding new conversation to account`);
+        console.log(
+          `[Conversation Handler] Adding new conversation to account`
+        );
         accounts[accountIndex].conversations.push(conversation);
       }
 
       console.log(`[Conversation Handler] Storing updated account`);
       await this.accountManager.storeAccount(accounts[accountIndex]);
     } else {
-      console.log(`[Conversation Handler] Account not found with ID: ${accountId}`);
+      console.log(
+        `[Conversation Handler] Account not found with ID: ${accountId}`
+      );
     }
   }
 
-  private async deleteConversation(accountId: string, conversationId: string): Promise<void> {
-    console.log(`[Conversation Handler] Deleting conversation ${conversationId} for account ID: ${accountId}`);
+  private async deleteConversation(
+    accountId: string,
+    conversationId: string
+  ): Promise<void> {
+    console.log(
+      `[Conversation Handler] Deleting conversation ${conversationId} for account ID: ${accountId}`
+    );
     const accounts = this.accountManager.getAccounts();
     const accountIndex = accounts.findIndex((acc) => acc.id === accountId);
 
     if (accountIndex !== -1) {
       const account = accounts[accountIndex];
-      account.conversations = account.conversations.filter(conv => conv.id !== conversationId);
+      account.conversations = account.conversations.filter(
+        (conv) => conv.id !== conversationId
+      );
       await this.accountManager.storeAccount(account);
-      
-      this.sendMessageToWebview("conversationDeleted", { 
-        accountId, 
-        conversationId 
+
+      this.sendMessageToWebview("conversationDeleted", {
+        accountId,
+        conversationId,
       });
     } else {
-      console.log(`[Conversation Handler] Account not found with ID: ${accountId}`);
+      console.log(
+        `[Conversation Handler] Account not found with ID: ${accountId}`
+      );
     }
   }
 
@@ -314,11 +492,15 @@ export class VSCodeEventHandler {
     // Implement the logic to handle getting accounts
   }
 
-  private handleUpload(accountId: string): void {
-    console.log(
-      `[Upload Handler] Processing upload for account ID: ${accountId}`
-    );
-    // Implement the logic to handle the upload process
+  private async handleUpload(): Promise<void> {
+    if (!this._generatedDocPath) {
+      this.sendMessageToWebview("error", {
+        message: "No documentation file generated yet",
+      });
+      return;
+    }
+
+    await this.uploadFileToVectorStore(this._generatedDocPath);
   }
 
   private createNewConversation(conversation: any): void {
@@ -360,5 +542,123 @@ export class VSCodeEventHandler {
 
   public dispose(): void {
     this.disposables.forEach((disposable) => disposable.dispose());
+  }
+
+  private async uploadFileToVectorStore(filePath: string): Promise<void> {
+    if (!this.openaiClient || !this._currentAssistant) {
+      console.log("[EventHandler] OpenAI client or assistant not initialized");
+      this.sendMessageToWebview("error", {
+        message: "Please select an assistant and ensure your API key is set",
+      });
+      return;
+    }
+
+    this.sendMessageToWebview("uploadStart", {});
+
+    try {
+      // Verify file exists and get stats
+      const stats = await fsProm.stat(filePath);
+
+      console.log(`[EventHandler] File found: $src/EventHandler.ts`);
+      console.log(`[EventHandler] File size: ${stats.size} bytes`);
+
+      // Read file content
+      const fileContent = await fsProm.readFile(filePath);
+      const fileName = path.basename(filePath);
+
+      this.sendMessageToWebview("uploadStart", {});
+      console.log(`[EventHandler] Preparing to upload file: ${fileName}`);
+
+      // Create a Blob from the file content
+      const blob = new Blob([fileContent], { type: "text/markdown" });
+      const file = new File([blob], fileName, { type: "text/markdown" });
+
+      // Get current assistant configuration
+      const assistant = await this.openaiClient.beta.assistants.retrieve(
+        this._currentAssistant
+      );
+      let vectorStoreId;
+      let vectorStoreName;
+
+      // Check if assistant has a vector store
+      if (assistant.tool_resources?.file_search?.vector_store_ids?.length > 0) {
+        vectorStoreId =
+          assistant.tool_resources.file_search.vector_store_ids[0];
+        const vectorStore = await this.openaiClient.beta.vectorStores.retrieve(
+          vectorStoreId
+        );
+        vectorStoreName = vectorStore.name;
+        console.log(
+          `[EventHandler] Using existing vector store: ${vectorStoreName} (${vectorStoreId})`
+        );
+
+        // Get existing files in the vector store
+        const files = await this.openaiClient.beta.vectorStores.files.list(
+          vectorStoreId
+        );
+        // Find and delete file with the same name if it exists
+        const existingFile = await Promise.all(
+          files.data.map(async (f) => {
+            const fileDetails = await this.openaiClient.files.retrieve(f.id);
+            return fileDetails.filename === fileName ? f : null;
+          })
+        ).then((results) => results.find((f) => f !== null));
+        if (existingFile) {
+          console.log(
+            `[EventHandler] Deleting existing file with same name: ${fileName}`
+          );
+          await this.openaiClient.beta.vectorStores.files.del(
+            vectorStoreId,
+            existingFile.id
+          );
+        }
+      } else {
+        vectorStoreName = `Sherpa Store - ${assistant.name}`;
+        const vectorStore = await this.openaiClient.beta.vectorStores.create({
+          name: vectorStoreName,
+        });
+        vectorStoreId = vectorStore.id;
+        console.log(
+          `[EventHandler] Created new vector store: ${vectorStoreName} (${vectorStoreId})`
+        );
+      }
+
+      // Upload file to vector store
+      await this.openaiClient.beta.vectorStores.fileBatches.uploadAndPoll(
+        vectorStoreId,
+        { files: [file] }
+      );
+      console.log(`[EventHandler] File uploaded to vector store successfully`);
+
+      // Ensure assistant has file_search tool and vector store
+      await this.openaiClient.beta.assistants.update(this._currentAssistant, {
+        tools: [{ type: "file_search" }],
+        tool_resources: {
+          file_search: {
+            vector_store_ids: [vectorStoreId],
+          },
+        },
+      });
+
+      console.log(
+        `[EventHandler] Assistant updated with vector store configuration`
+      );
+
+      this.sendMessageToWebview("uploadComplete", {
+        fileName,
+        vectorStoreName,
+        vectorStoreId,
+        assistantName: assistant.name,
+      });
+    } catch (error) {
+      console.error(
+        "[EventHandler] Error uploading file to vector store:",
+        error
+      );
+      this.sendMessageToWebview("error", {
+        message:
+          "Error uploading file to vector store: " + (error as Error).message,
+      });
+    }
   }
 }
