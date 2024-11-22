@@ -1,13 +1,13 @@
-import { useContextMasterContext } from "../../context"
-import { ConversationSelector } from "./ConversationSelector"
-import { ChatWindow } from "./ChatWindow"
-import { MessageInput } from "./MessageInput"
-import React from "react"
+import { useContextMasterContext } from "../../context";
+import { ConversationSelector } from "./ConversationSelector";
+import { ChatWindow } from "./ChatWindow";
+import { MessageInput } from "./MessageInput";
+import React from "react";
 
 export function ChatTab() {
-  const { 
-    currentConversation, 
-    selectedAccount, 
+  const {
+    currentConversation,
+    selectedAccount,
     createNewConversation,
     setCurrentConversation,
     handleSendChatMessage,
@@ -15,11 +15,18 @@ export function ChatTab() {
     isClientInitialized,
     error,
     isAssistantTyping,
-  } = useContextMasterContext()
+    assistants,
+    models,
+    selectedModel,
+    selectedAssistant,
+    setSelectedAssistant,
+    setSelectedModel,
+    
+  } = useContextMasterContext();
 
   return (
-    <div className="space-y-4">
-      <ConversationSelector 
+    <div className="space-y-4 flex flex-col overflow-y-hidden">
+      <ConversationSelector
         disabled={!isClientInitialized}
         onDeleteConversation={handleDeleteConversation}
         currentConversation={currentConversation}
@@ -27,12 +34,21 @@ export function ChatTab() {
         onNewConversation={createNewConversation}
         onSelectConversation={setCurrentConversation}
       />
-      <ChatWindow 
-        messages={currentConversation?.messages || []} 
-        error={error}
+      <ChatWindow
+        messages={currentConversation?.messages || []}
+        error={error || undefined}
         isAssistantTyping={isAssistantTyping}
       />
-      <MessageInput sendMessage={handleSendChatMessage} disabled={!isClientInitialized} />
+      <MessageInput
+        sendMessage={handleSendChatMessage}
+        assistants={assistants}
+        models={models}
+        selectedAssistant={selectedAssistant}
+        setSelectedAssistant={setSelectedAssistant}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        isAssistantTyping={isAssistantTyping}
+      />
     </div>
-  )
+  );
 }

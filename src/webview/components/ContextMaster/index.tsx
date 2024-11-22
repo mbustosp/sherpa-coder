@@ -14,30 +14,29 @@ export default function ContextMaster() {
     toggleFullScreen,
     error,
     isClientInitialized,
-    ...contextState
   } = useContextMasterContext()
 
   return (
 
-    <Card className={`w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none'}`}>
+    <Card className={`flex flex-col w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none'}`}>
       <Header isFullScreen={isFullScreen} onToggleFullScreen={toggleFullScreen} />
-      <CardContent>
-        <Tabs defaultValue={isClientInitialized ? "chat" : "account"} className="w-full">
+      <CardContent className="flex grow flex-auto overflow-y-hidden">
+        <Tabs defaultValue={isClientInitialized ? "chat" : "account"} className="flex flex-col w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="chat" disabled={!isClientInitialized}>Chat</TabsTrigger>
             <TabsTrigger value="actions" disabled={!isClientInitialized}>Actions</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="chat">
+          <TabsContent value="chat" className="flex flex-col overflow-y-hidden">
             <ChatTab />
           </TabsContent>
           
-          <TabsContent value="actions">
+          <TabsContent value="actions" className="flex flex-col">
             <ActionsTab />
           </TabsContent>
           
-          <TabsContent value="account">
+          <TabsContent value="account" className="flex flex-col">
             <AccountTab />
           </TabsContent>
         </Tabs>

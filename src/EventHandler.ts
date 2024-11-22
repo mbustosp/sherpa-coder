@@ -196,10 +196,21 @@ export class VSCodeEventHandler {
       this.sendMessageToWebview("updateConversation", { conversation });
 
       console.log(`[Chat] Creating new thread with previous messages`);
-      const threadMessages = conversation.messages.map((msg) => ({
-        role: msg.sender as "user" | "assistant",
-        content: msg.content,
-      }));
+      const systemMessage = {
+        role: "user",
+        content: `You are a helpful assistant. 
+        Search for information in the stored files as embeddings in the vector store.. 
+        Project Documentation contains the source code of the software project, and reference specific sections when possible. 
+        Follow the instructions of the assistant and use these ones as aggregates. Answer in the language of the user.`,
+      };
+      
+      const threadMessages = [
+        systemMessage,
+        ...conversation.messages.map((msg) => ({
+          role: msg.sender as "user" | "assistant",
+          content: msg.content,
+        }))
+      ];
 
       const thread = await this.openaiClient.beta.threads.create({
         messages: threadMessages,
@@ -263,7 +274,6 @@ export class VSCodeEventHandler {
       this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
     }
   }
-
   private async generateDocs(payload: {
     accountId: string;
     assistantId: string;
@@ -489,7 +499,6 @@ export class VSCodeEventHandler {
         accounts: accounts,
       });
     }
-    // Implement the logic to handle getting accounts
   }
 
   private async handleUpload(): Promise<void> {

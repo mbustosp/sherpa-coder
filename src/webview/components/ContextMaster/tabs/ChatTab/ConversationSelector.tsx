@@ -53,11 +53,11 @@ export function ConversationSelector({
   }
 
   return (
-    <div className="flex justify-between items-center space-x-2 mb-2 w-full">
+    <div className="flex justify-between items-center gap-2 mb-2 w-full flex-wrap">
       <DropdownMenu>
         <DropdownMenuTrigger asChild disabled={disabled} className="min-w-0">
           <Button variant="outline" className="w-full justify-between" disabled={disabled}>
-            <div className="text-sm text-muted-foreground break-words">
+            <div className="text-sm text-muted-foreground break-words overflow-x-hidden">
             {currentConversation?.title || "Select Conversation"}
             </div>
             <ChevronDown className="ml-2 h-4 w-4" />
@@ -79,7 +79,7 @@ export function ConversationSelector({
                     {conversation.date} • {conversation.messages?.length || 0} messages
                   </div>
                   <div className="text-sm text-muted-foreground break-words">
-                    {conversation.lastMessage}
+                    {conversation.lastMessage?.slice(0, 100)}
                   </div>
                 </div>
               </DropdownMenuItem>
@@ -87,10 +87,10 @@ export function ConversationSelector({
           </ScrollArea>
         </DropdownMenuContent>
       </DropdownMenu>
-
+      <div className="flex flex-grow gap-2">
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogTrigger asChild>
-          <Button onClick={() => setIsDeleteDialogOpen(true)} variant="outline" disabled={disabled || !currentConversation}>
+          <Button onClick={() => setIsDeleteDialogOpen(true)} className="w-full" variant="outline" disabled={disabled || !currentConversation}>
             <Trash2 className="w-4 h-4 mr-2" />
             Delete
           </Button>
@@ -111,7 +111,7 @@ export function ConversationSelector({
 
       <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
         <DialogTrigger asChild>
-          <Button onClick={() => setIsNewConversationDialogOpen(true)} variant="outline" disabled={disabled}>
+          <Button onClick={() => setIsNewConversationDialogOpen(true)} className="w-full" variant="outline" disabled={disabled}>
             <Plus className="w-4 h-4 mr-2" />
             New
           </Button>
@@ -142,6 +142,7 @@ export function ConversationSelector({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }

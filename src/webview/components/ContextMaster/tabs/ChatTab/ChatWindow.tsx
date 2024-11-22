@@ -36,7 +36,7 @@ export function ChatWindow({
   isAssistantTyping,
 }: ChatWindowProps) {
   return (
-    <div className="border rounded-md p-4 h-80 overflow-y-auto">
+    <div className="border rounded-md p-4 flex-grow overflow-y-auto">
       <div className="chat">
         <div className="space-y-4">
           {messages.map((message) => (

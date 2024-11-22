@@ -172,6 +172,11 @@ export function useContextMaster() {
         : [newConversation],
     };
 
+    setAccounts(
+      accounts.map((account) =>
+        account.id === selectedAccount.id ? updatedAccount : account
+      )
+    );
     setCurrentConversation(newConversation);
     sendMessage("newConversation", { conversation: newConversation });
   };

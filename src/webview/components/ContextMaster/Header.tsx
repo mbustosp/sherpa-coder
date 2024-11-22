@@ -11,7 +11,7 @@ interface HeaderProps {
 
 export function Header({ isFullScreen, onToggleFullScreen }: HeaderProps) {
   return (
-    <CardHeader>
+    <CardHeader className='flex-initial'>
       <div className="flex items-center justify-between">
         <div>
           <CardTitle>ContextMaster Chat</CardTitle>
