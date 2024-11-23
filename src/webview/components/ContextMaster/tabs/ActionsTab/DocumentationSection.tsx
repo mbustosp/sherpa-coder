@@ -80,9 +80,9 @@ export function DocumentationSection({
             <Separator />
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <div>
-                <h4 className="text-sm font-semibold mb-1">Upload to Assistant</h4>
+                <h4 className="text-sm font-semibold mb-1">Upload to OpenAI</h4>
                 <p className="text-xs text-muted-foreground">
-                  Uploads the generated documentation to the current assistant's vector store.
+                  Uploads the generated documentation file to OpenAI.
                 </p>
               </div>
               <Button 
@@ -131,7 +131,7 @@ export function DocumentationSection({
                     File uploaded successfully
                   </span>
                 ) : (
-                  isUploading ? "Uploading file to the assistant's vector store..." : "Ready to upload"
+                  isUploading ? "Uploading file to the OpenAI..." : "Ready to upload"
                 )}
               </p>
             )}

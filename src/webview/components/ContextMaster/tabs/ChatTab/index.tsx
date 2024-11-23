@@ -21,6 +21,7 @@ export function ChatTab() {
     selectedAssistant,
     setSelectedAssistant,
     setSelectedModel,
+    docsGenerated
     
   } = useContextMasterContext();
 
@@ -47,7 +48,7 @@ export function ChatTab() {
         setSelectedAssistant={setSelectedAssistant}
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
-        isAssistantTyping={isAssistantTyping}
+        hasDocumentation={docsGenerated}
       />
     </div>
   );

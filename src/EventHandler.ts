@@ -3,9 +3,7 @@ import { AccountManager } from "./AccountManager";
 import OpenAI from "openai";
 import { Conversation, Message } from "@/types";
 import * as fsProm from "fs/promises";
-import { jsPDF } from "jspdf";
-import mdToPDF from '@ezpaarse-project/jspdf-md';
-import { isBinaryFile, isBinaryFileSync } from "isbinaryfile";
+import { isBinaryFile } from "isbinaryfile";
 import * as path from "path";
 import ignore from "ignore";
 
@@ -19,6 +17,7 @@ export class VSCodeEventHandler {
   private _currentAssistant: string | undefined;
   private _currentModel: string | undefined;
   private _generatedDocPath: string | undefined;
+  private _uploadedFileId: string | undefined;
 
   private constructor(context: vscode.ExtensionContext) {
     this.context = context;
@@ -164,6 +163,7 @@ export class VSCodeEventHandler {
     message: string;
     assistant: string;
     model: string;
+    attachDoc: boolean;
   }): Promise<void> {
     console.log(`[Chat] Starting chat message handler with payload:`, payload);
     if (!this.openaiClient) {
@@ -200,29 +200,22 @@ export class VSCodeEventHandler {
       console.log(`[Chat] Creating new thread with previous messages`);
       const systemMessage = {
         role: "user",
-        content: `You are a specialized and engaging assistant focused on enhancing and providing insights based on the project's documentation and related files. Your primary source of information is the vector store, containing embedded files. Among these, a key document is "project-documentation.txt", which holds the complete source code for the user's software project.
+        content: "Consult the attached file 'project-documentation.txt' for the source code"};
 
-Here's how you should approach your tasks:
-
-1. **Instruction Priority**: Foremost, always adhere to the specific instructions provided within the assistant's guidance. These are paramount and should shape your responses and actions.
-
-2. **Contextual Reference**: Whenever the user mentions terms like "my code," "this project," or "my software," inherently associate these with the contents of "project-documentation.txt".
-
-3. **File Availability**: If "project-documentation.txt" is missing from the vector store, gently prompt the user to upload it for a more comprehensive analysis.
-
-4. **Information Extraction**: Prioritize referencing specific sections of the source code or documentation when responding to queries, especially those concerning project improvements or code-specific questions.
-
-5. **Presentation of Changes**: When suggesting updates or enhancements, endeavor to present a clear 'before and after' comparison of the relevant code segments or documentation paragraphs. This approach aids understanding and facilitates better decision-making.
-
-6. **Communication**: Answer in the language of the user to ensure clarity and ease of understanding.`,
-      };
-
+      console.log(`[Chat] Preparing thread messages with ${conversation.messages.length} previous messages`);
       const threadMessages = [
         systemMessage,
-        ...conversation.messages.map((msg) => ({
-          role: msg.sender as "user" | "assistant",
-          content: msg.content,
-        })),
+        ...conversation.messages.map((msg) => {
+          const hasAttachment = payload.attachDoc && this._generatedDocPath;
+          console.log(`[Chat] Adding message from ${msg.sender}${hasAttachment ? ' with document attachment' : ''}`);
+          return {
+            role: msg.sender as "user" | "assistant",
+            content: msg.content,
+            ...(payload.attachDoc && this._generatedDocPath && {
+              attachments: [{ file_id: this._uploadedFileId, tools: [{ type: "file_search" }] }],
+            })
+          };
+        }),
       ];
 
       const thread = await this.openaiClient.beta.threads.create({
@@ -574,7 +567,7 @@ ${content.toString()}
       return;
     }
 
-    await this.uploadFileToVectorStore(this._generatedDocPath);
+    await this.uploadFileOpenAI(this._generatedDocPath);
   }
 
   private createNewConversation(conversation: any): void {
@@ -618,119 +611,49 @@ ${content.toString()}
     this.disposables.forEach((disposable) => disposable.dispose());
   }
 
-  private async uploadFileToVectorStore(filePath: string): Promise<void> {
-    if (!this.openaiClient || !this._currentAssistant) {
-      console.log("[EventHandler] OpenAI client or assistant not initialized");
-      this.sendMessageToWebview("error", {
-        message: "Please select an assistant and ensure your API key is set",
-      });
-      return;
+  private async uploadFileOpenAI(filePath: string): Promise<void> {
+    if (!this.openaiClient) {
+        console.log("[EventHandler] OpenAI client not initialized");
+        this.sendMessageToWebview("error", {
+            message: "Please ensure your API key is set"
+        });
+        return;
     }
 
     this.sendMessageToWebview("uploadStart", {});
 
     try {
-      // Verify file exists and get stats
-      const stats = await fsProm.stat(filePath);
+        const stats = await fsProm.stat(filePath);
+        console.log(`[EventHandler] File found: ${filePath}`);
+        console.log(`[EventHandler] File size: ${stats.size} bytes`);
 
-      console.log(`[EventHandler] File found: $src/EventHandler.ts`);
-      console.log(`[EventHandler] File size: ${stats.size} bytes`);
+        const fileContent = await fsProm.readFile(filePath);
+        const fileName = path.basename(filePath);
 
-      // Read file content
-      const fileContent = await fsProm.readFile(filePath);
-      const fileName = path.basename(filePath);
+        const blob = new Blob([fileContent], { type: "text/markdown" });
+        const file = new File([blob], fileName, { type: "text/markdown" });
 
-      this.sendMessageToWebview("uploadStart", {});
-      console.log(`[EventHandler] Preparing to upload file: ${fileName}`);
-
-      // Create a Blob from the file content
-      const blob = new Blob([fileContent], { type: "text/markdown" });
-      const file = new File([blob], fileName, { type: "text/markdown" });
-
-      // Get current assistant configuration
-      const assistant = await this.openaiClient.beta.assistants.retrieve(
-        this._currentAssistant
-      );
-      let vectorStoreId;
-      let vectorStoreName;
-
-      // Check if assistant has a vector store
-      if (assistant.tool_resources?.file_search?.vector_store_ids?.length > 0) {
-        vectorStoreId =
-          assistant.tool_resources.file_search.vector_store_ids[0];
-        const vectorStore =
-          await this.openaiClient.beta.vectorStores.retrieve(vectorStoreId);
-        vectorStoreName = vectorStore.name;
-        console.log(
-          `[EventHandler] Using existing vector store: ${vectorStoreName} (${vectorStoreId})`
-        );
-
-        // Get existing files in the vector store
-        const files =
-          await this.openaiClient.beta.vectorStores.files.list(vectorStoreId);
-        // Find and delete file with the same name if it exists
-        const existingFile = await Promise.all(
-          files.data.map(async (f) => {
-            const fileDetails = await this.openaiClient.files.retrieve(f.id);
-            return fileDetails.filename === fileName ? f : null;
-          })
-        ).then((results) => results.find((f) => f !== null));
-        if (existingFile) {
-          console.log(
-            `[EventHandler] Deleting existing file with same name: ${fileName}`
-          );
-          await this.openaiClient.beta.vectorStores.files.del(
-            vectorStoreId,
-            existingFile.id
-          );
-        }
-      } else {
-        vectorStoreName = `Sherpa Store - ${assistant.name}`;
-        const vectorStore = await this.openaiClient.beta.vectorStores.create({
-          name: vectorStoreName,
+        const uploadedFile = await this.openaiClient.files.create({
+            file,
+            purpose: "assistants"
         });
-        vectorStoreId = vectorStore.id;
-        console.log(
-          `[EventHandler] Created new vector store: ${vectorStoreName} (${vectorStoreId})`
-        );
-      }
 
-      // Upload file to vector store
-      await this.openaiClient.beta.vectorStores.fileBatches.uploadAndPoll(
-        vectorStoreId,
-        { files: [file] }
-      );
-      console.log(`[EventHandler] File uploaded to vector store successfully`);
+        this._uploadedFileId = uploadedFile.id;
 
-      // Ensure assistant has file_search tool and vector store
-      await this.openaiClient.beta.assistants.update(this._currentAssistant, {
-        tools: [{ type: "file_search" }],
-        tool_resources: {
-          file_search: {
-            vector_store_ids: [vectorStoreId],
-          },
-        },
-      });
+        console.log(`[EventHandler] File uploaded successfully with ID: ${uploadedFile.id}`);
 
-      console.log(
-        `[EventHandler] Assistant updated with vector store configuration`
-      );
+        this.sendMessageToWebview("uploadComplete", {
+            fileName,
+            fileId: uploadedFile.id,
+            success: true
+        });
 
-      this.sendMessageToWebview("uploadComplete", {
-        fileName,
-        vectorStoreName,
-        vectorStoreId,
-        assistantName: assistant.name,
-      });
     } catch (error) {
-      console.error(
-        "[EventHandler] Error uploading file to vector store:",
-        error
-      );
-      this.sendMessageToWebview("error", {
-        message:
-          "Error uploading file to vector store: " + (error as Error).message,
-      });
+        console.error("[EventHandler] Error uploading file:", error);
+        this.sendMessageToWebview("error", {
+            message: "Error uploading file: " + (error as Error).message
+        });
     }
-  }
+}
+  
 }

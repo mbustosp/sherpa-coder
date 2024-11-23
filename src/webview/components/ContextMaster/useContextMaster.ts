@@ -264,7 +264,7 @@ export function useContextMaster() {
     }
   };
 
-  const handleSendChatMessage = (message: string) => {
+  const handleSendChatMessage = (message: string, attachDoc?: boolean) => {
     if (!currentConversation || !selectedAccount) return;
 
     sendMessage("sendChatMessage", {
@@ -273,6 +273,7 @@ export function useContextMaster() {
       message,
       assistant: selectedAssistant,
       model: selectedModel,
+      attachDoc
     });
   };
 

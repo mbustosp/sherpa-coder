@@ -3,12 +3,23 @@ import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MessageSquare } from "lucide-react";
+
+import { MessageSquare, Settings } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Textarea } from "@/webview/components/ui/textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/webview/components/ui/popover";
+import { Switch } from "@/webview/components/ui/switch";
+import { Label } from "@/webview/components/ui/label";
 
 interface Assistant {
   id: string;
@@ -20,7 +31,7 @@ interface Model {
 }
 
 interface MessageInputProps {
-  sendMessage: (message: string) => void;
+  sendMessage: (message: string, attachDoc: boolean) => void;
   assistants: Assistant[];
   models: Model[];
   selectedAssistant: string;
@@ -29,6 +40,7 @@ interface MessageInputProps {
   setSelectedModel: (model: string) => void;
   disabled?: boolean;
   isAssistantTyping: boolean;
+  hasDocumentation?: boolean;
 }
 
 export function MessageInput({
@@ -41,13 +53,16 @@ export function MessageInput({
   setSelectedModel,
   disabled = false,
   isAssistantTyping,
+  hasDocumentation = false,
 }: MessageInputProps) {
   const [message, setMessage] = React.useState("");
+  const [attachDoc, setAttachDoc] = React.useState(false);
 
   const handleSendMessage = () => {
     if (message.trim()) {
-      sendMessage(message);
+      sendMessage(message, attachDoc);
       setMessage("");
+      setAttachDoc(false);
     }
   };
 
@@ -59,7 +74,7 @@ export function MessageInput({
   };
 
   return (
-    <div className="flex flex-col border rounded-lg bg-background">
+    <div className="flex flex-col border rounded-lg bg-background shadow-sm">
       <Textarea
         placeholder="Type your message..."
         className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] max-h-[200px]"
@@ -68,66 +83,92 @@ export function MessageInput({
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleInputKeyPress}
       />
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 border-t space-y-2 sm:space-y-0 sm:space-x-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground w-full sm:w-auto">
-            <span className="whitespace-nowrap">The assistant</span>
-            <Select
-              value={selectedAssistant}
-              onValueChange={setSelectedAssistant}
-            >
-              <SelectTrigger className="h-8 w-full sm:w-[180px] text-xs border bg-transparent hover:bg-accent px-2 [&>span]:line-clamp-1 [&>span]:flex [&>span]:w-full">
-                <SelectValue placeholder="Select Assistant" />
-              </SelectTrigger>
-              <SelectContent>
-                {assistants.map((assistant) => (
-                  <SelectItem
-                    key={assistant.id}
-                    value={assistant.id}
-                    className="text-xs"
+      <div className="flex items-center justify-between p-2 border-t">
+        <div className="flex items-center space-x-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="text-xs">
+                <Settings className="w-3 h-3 mr-1" />
+                Settings
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Assistant</h4>
+                  <Select
+                    value={selectedAssistant}
+                    onValueChange={setSelectedAssistant}
                   >
-                    {assistant.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-muted-foreground w-full sm:w-auto">
-            <span className="whitespace-nowrap">will answer using</span>
-            <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger className="h-8 w-full sm:w-[180px] text-xs border bg-transparent hover:bg-accent px-2 [&>span]:line-clamp-1 [&>span]:flex [&>span]:w-full">
-                <SelectValue placeholder="Select Model" />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((model) => (
-                  <SelectItem
-                    key={model.id}
-                    value={model.id}
-                    className="text-xs"
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Assistant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Assistants</SelectLabel>
+                        {assistants.map((assistant) => (
+                          <SelectItem key={assistant.id} value={assistant.id}>
+                            {assistant.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Model</h4>
+                  <Select
+                    value={selectedModel}
+                    onValueChange={setSelectedModel}
                   >
-                    {model.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex items-center justify-between sm:justify-end space-x-2 w-full sm:w-auto">
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Models</SelectLabel>
+                        {models.map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            {model.id}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {hasDocumentation && (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="attach-doc"
+                      checked={attachDoc}
+                      onCheckedChange={setAttachDoc}
+                    />
+                    <Label
+                      htmlFor="attach-doc"
+                      className="text-sm cursor-pointer"
+                    >
+                      Include project source
+                    </Label>
+                  </div>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
           {isAssistantTyping && (
             <span className="text-xs text-muted-foreground animate-pulse">
-              Typing...
+              Assistant is typing...
             </span>
           )}
-          <Button 
-            onClick={handleSendMessage} 
-            disabled={disabled || !message.trim()} 
-            size="sm" 
-            className="px-4 w-full sm:w-auto"
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Send
-          </Button>
         </div>
+        <Button
+          onClick={handleSendMessage}
+          disabled={disabled || !message.trim()}
+          size="sm"
+          className={cn("px-4", !message.trim() && "opacity-50")}
+        >
+          <MessageSquare className="w-4 h-4 mr-2" />
+          Send
+        </Button>
       </div>
     </div>
   );
