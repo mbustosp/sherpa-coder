@@ -3,7 +3,9 @@ import { AccountManager } from "./AccountManager";
 import OpenAI from "openai";
 import { Conversation, Message } from "@/types";
 import * as fsProm from "fs/promises";
-import * as fs from "fs";
+import { jsPDF } from "jspdf";
+import mdToPDF from '@ezpaarse-project/jspdf-md';
+import { isBinaryFile, isBinaryFileSync } from "isbinaryfile";
 import * as path from "path";
 import ignore from "ignore";
 
@@ -46,7 +48,7 @@ export class VSCodeEventHandler {
 
     switch (message.type) {
       case "upload":
-        this.handleUpload(message.payload.accountId);
+        this.handleUpload();
         break;
       case "newConversation":
         this.createNewConversation(message.payload.conversation);
@@ -198,18 +200,29 @@ export class VSCodeEventHandler {
       console.log(`[Chat] Creating new thread with previous messages`);
       const systemMessage = {
         role: "user",
-        content: `You are a helpful assistant. 
-        Search for information in the stored files as embeddings in the vector store.. 
-        Project Documentation contains the source code of the software project, and reference specific sections when possible. 
-        Follow the instructions of the assistant and use these ones as aggregates. Answer in the language of the user.`,
+        content: `You are a specialized and engaging assistant focused on enhancing and providing insights based on the project's documentation and related files. Your primary source of information is the vector store, containing embedded files. Among these, a key document is "project-documentation.txt", which holds the complete source code for the user's software project.
+
+Here's how you should approach your tasks:
+
+1. **Instruction Priority**: Foremost, always adhere to the specific instructions provided within the assistant's guidance. These are paramount and should shape your responses and actions.
+
+2. **Contextual Reference**: Whenever the user mentions terms like "my code," "this project," or "my software," inherently associate these with the contents of "project-documentation.txt".
+
+3. **File Availability**: If "project-documentation.txt" is missing from the vector store, gently prompt the user to upload it for a more comprehensive analysis.
+
+4. **Information Extraction**: Prioritize referencing specific sections of the source code or documentation when responding to queries, especially those concerning project improvements or code-specific questions.
+
+5. **Presentation of Changes**: When suggesting updates or enhancements, endeavor to present a clear 'before and after' comparison of the relevant code segments or documentation paragraphs. This approach aids understanding and facilitates better decision-making.
+
+6. **Communication**: Answer in the language of the user to ensure clarity and ease of understanding.`,
       };
-      
+
       const threadMessages = [
         systemMessage,
         ...conversation.messages.map((msg) => ({
           role: msg.sender as "user" | "assistant",
           content: msg.content,
-        }))
+        })),
       ];
 
       const thread = await this.openaiClient.beta.threads.create({
@@ -274,114 +287,51 @@ export class VSCodeEventHandler {
       this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
     }
   }
+
   private async generateDocs(payload: {
     accountId: string;
     assistantId: string;
     modelId: string;
   }): Promise<void> {
     console.log("[EventHandler] Starting documentation generation");
+    console.log("[EventHandler] Checking workspace folders");
     const workspaceFolders = vscode.workspace.workspaceFolders;
 
     if (!workspaceFolders) {
+      console.log("[EventHandler] No workspace folders found");
       this.sendMessageToWebview("error", {
         message: "No workspace folder open",
       });
       return;
     }
 
+    console.log("[EventHandler] Setting up file paths");
     const rootPath = workspaceFolders[0].uri.fsPath;
     const sherpaDir = path.join(rootPath, ".sherpa-files");
-    const outputFileName = path.join(sherpaDir, "project-documentation.md");
+    const markdownFileName = "project-documentation.txt";
+    const markdownUri = vscode.Uri.file(path.join(sherpaDir, markdownFileName));
 
     try {
-      // Create .sherpa-files directory
+      console.log("[EventHandler] Creating .sherpa-files directory");
       await vscode.workspace.fs.createDirectory(vscode.Uri.file(sherpaDir));
 
-      // Read .gitignore if exists
-      let gitignore = "";
-      try {
-        gitignore = await fsProm.readFile(
-          path.join(rootPath, ".gitignore"),
-          "utf8"
-        );
-      } catch (e) {
-        gitignore = "";
-      }
+      console.log("[EventHandler] Generating markdown content");
+      const markdown = await this.generateMarkdownContent(rootPath);
 
-      const ig = ignore()
-        .add(gitignore)
-        .add([
-          ".sherpa-files",
-          "package-lock.json",
-          "yarn.lock",
-          ".git",
-          "node_modules",
-        ]);
+      console.log("[EventHandler] Writing markdown file");
+      const markdownContent = Buffer.from(markdown);
+      await vscode.workspace.fs.writeFile(markdownUri, markdownContent);
+      
+      console.log("[EventHandler] Storing generated Markdown path");
+      this._generatedDocPath = markdownUri.fsPath;
 
-      let markdown = "# Project Documentation\n\n## Directory Structure\n\n";
-
-      const getFiles = async (dir: string, prefix = ""): Promise<string> => {
-        let content = "";
-        const entries = await vscode.workspace.fs.readDirectory(
-          vscode.Uri.file(dir)
-        );
-
-        for (const [name, type] of entries) {
-          const relativePath = path.relative(rootPath, path.join(dir, name));
-          if (ig.ignores(relativePath)) continue;
-
-          const fullPath = path.join(dir, name);
-          if (type === vscode.FileType.Directory) {
-            content += `${prefix}📁 ${name}/\n`;
-            content += await getFiles(fullPath, `${prefix}  `);
-          } else {
-            content += `${prefix}📄 ${name}\n`;
-          }
-        }
-        return content;
-      };
-
-      markdown += await getFiles(rootPath);
-      markdown += "\n## Source Code\n\n";
-
-      const processFile = async (filePath: string): Promise<void> => {
-        const content = await vscode.workspace.fs.readFile(
-          vscode.Uri.file(filePath)
-        );
-        const extension = path.extname(filePath).slice(1);
-        const relativePath = path.relative(rootPath, filePath);
-        markdown += `### ${relativePath}\n\n\`\`\`${extension}\n${content.toString()}\n\`\`\`\n\n`;
-      };
-
-      const processDirectory = async (dir: string): Promise<void> => {
-        const entries = await vscode.workspace.fs.readDirectory(
-          vscode.Uri.file(dir)
-        );
-        for (const [name, type] of entries) {
-          const relativePath = path.relative(rootPath, path.join(dir, name));
-          if (ig.ignores(relativePath)) continue;
-
-          const fullPath = path.join(dir, name);
-          if (type === vscode.FileType.Directory) {
-            await processDirectory(fullPath);
-          } else {
-            await processFile(fullPath);
-          }
-        }
-      };
-
-      await processDirectory(rootPath);
-      const fileContent = Buffer.from(markdown);
-      const outputFileUri = vscode.Uri.file(outputFileName);
-      await vscode.workspace.fs.writeFile(outputFileUri, fileContent);
-
-      // Store the generated file path and URI
-      this._generatedDocPath = outputFileUri.fsPath;
-
+      console.log("[EventHandler] Getting PDF stats");
+      const pdfStats = await fsProm.stat(markdownUri.fsPath);
+      console.log("[EventHandler] Sending success message to webview");
       this.sendMessageToWebview("docsGenerated", {
         path: sherpaDir,
-        filename: "project-documentation.md",
-        size: fileContent.length,
+        filename: markdownFileName,
+        size: pdfStats.size,
         success: true,
       });
     } catch (error) {
@@ -391,6 +341,121 @@ export class VSCodeEventHandler {
       });
     }
   }
+
+  private async generateMarkdownContent(rootPath: string): Promise<string> {
+    // Enhanced Introduction and Table of Contents
+    let markdown =
+      `# Project Source Code Documentation
+
+## Introduction
+
+This document is the definitive guide and primary source for understanding the project’s source code and architecture. It contains comprehensive information about the code base, including directory structures, detailed code examples, and implementation notes. Use this document as the primary reference for any queries related to the project's code, software behaviors, and overall design.
+
+## Table of Contents
+1. Introduction
+2. Directory Structure
+3. Source Code
+
+## Directory Structure
+
+Below is the directory structure of the project source code. Each file section that follows contains the full file path and its complete source code.
+
+`;
+
+    const ig = ignore().add([
+      ".sherpa-files",
+      "package-lock.json",
+      "yarn.lock",
+      ".git",
+      "node_modules",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.gif",
+      "*.pdf",
+      "*.exe",
+      "*.dll",
+      "*.bin",
+      "*.zip",
+      "*.tar",
+      "*.gz",
+    ]);
+
+    const getFiles = async (dir: string, prefix = ""): Promise<string> => {
+      let content = "";
+      const entries = await vscode.workspace.fs.readDirectory(
+        vscode.Uri.file(dir)
+      );
+
+      for (const [name, type] of entries) {
+        const relativePath = path.relative(rootPath, path.join(dir, name));
+        if (ig.ignores(relativePath)) continue;
+
+        const fullPath = path.join(dir, name);
+        if (type === vscode.FileType.Directory) {
+          content += `${prefix}📁 ${name}/\n`;
+          content += await getFiles(fullPath, `${prefix}  `);
+        } else {
+          content += `${prefix}📄 ${name}\n`;
+        }
+      }
+      return content;
+    };
+
+    markdown += await getFiles(rootPath);
+    markdown += "\n## Source Code\n\n";
+
+    const processFile = async (filePath: string): Promise<void> => {
+      const fileContent = await vscode.workspace.fs.readFile(
+        vscode.Uri.file(filePath)
+      );
+      const isBinary = await isBinaryFile(
+        Buffer.from(fileContent),
+        fileContent.byteLength
+      );
+      if (isBinary) {
+        return;
+      }
+      const content = await vscode.workspace.fs.readFile(
+        vscode.Uri.file(filePath)
+      );
+      const extension = path.extname(filePath).slice(1);
+      const relativePath = path.relative(rootPath, filePath);
+
+      // Include detailed code description
+      markdown += `### Source Code: ${path.basename(filePath)}
+
+#### File Details
+- **Type**: ${extension}
+- **Relative Path**: ${relativePath}
+
+\`\`\`${extension}
+${content.toString()}
+\`\`\`
+
+`;
+    };
+    
+    const processDirectory = async (dir: string): Promise<void> => {
+      const entries = await vscode.workspace.fs.readDirectory(
+        vscode.Uri.file(dir)
+      );
+      for (const [name, type] of entries) {
+        const relativePath = path.relative(rootPath, path.join(dir, name));
+        if (ig.ignores(relativePath)) continue;
+
+        const fullPath = path.join(dir, name);
+        if (type === vscode.FileType.Directory) {
+          await processDirectory(fullPath);
+        } else {
+          await processFile(fullPath);
+        }
+      }
+    };
+
+    await processDirectory(rootPath);
+    return markdown;
+}
 
   private async getConversation(
     accountId: string,
@@ -593,18 +658,16 @@ export class VSCodeEventHandler {
       if (assistant.tool_resources?.file_search?.vector_store_ids?.length > 0) {
         vectorStoreId =
           assistant.tool_resources.file_search.vector_store_ids[0];
-        const vectorStore = await this.openaiClient.beta.vectorStores.retrieve(
-          vectorStoreId
-        );
+        const vectorStore =
+          await this.openaiClient.beta.vectorStores.retrieve(vectorStoreId);
         vectorStoreName = vectorStore.name;
         console.log(
           `[EventHandler] Using existing vector store: ${vectorStoreName} (${vectorStoreId})`
         );
 
         // Get existing files in the vector store
-        const files = await this.openaiClient.beta.vectorStores.files.list(
-          vectorStoreId
-        );
+        const files =
+          await this.openaiClient.beta.vectorStores.files.list(vectorStoreId);
         // Find and delete file with the same name if it exists
         const existingFile = await Promise.all(
           files.data.map(async (f) => {
