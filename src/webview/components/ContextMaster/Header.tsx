@@ -14,9 +14,9 @@ export function Header({ isFullScreen, onToggleFullScreen }: HeaderProps) {
     <CardHeader className='flex-initial'>
       <div className="flex items-center justify-between">
         <div>
-          <CardTitle>ContextMaster Chat</CardTitle>
+          <CardTitle>Sherpa Coder Chat</CardTitle>
           <CardDescription className="mt-2">
-            ContextMaster is an extension that allows you to use the power of OpenAI assistants in VSCode.
+            Sherpa Coder is an extension that allows you to use the power of OpenAI assistants in VSCode.
           </CardDescription>
         </div>
       </div>

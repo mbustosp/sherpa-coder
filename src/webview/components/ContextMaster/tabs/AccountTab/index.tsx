@@ -5,6 +5,7 @@ import React from "react";
 import { Separator } from "../../../ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/webview/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { LocalDataRemoval } from "./LocalDataRemoval";
 
 export function AccountTab() {
   const {
@@ -17,6 +18,7 @@ export function AccountTab() {
     setNewAccountApiKey,
     handleCreateAccount,
     handleDeleteAccount,
+    handleRemoveExtensionData,
     error,
     dismissError,
     isLoading
@@ -57,6 +59,8 @@ export function AccountTab() {
         onCreateAccount={handleCreateAccount}
         disabled={isLoading}
       />
+      <Separator />
+      <LocalDataRemoval onRemoveData={handleRemoveExtensionData} />
     </div>
   );
 }

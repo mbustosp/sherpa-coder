@@ -3,6 +3,7 @@ import { ConversationSelector } from "./ConversationSelector";
 import { ChatWindow } from "./ChatWindow";
 import { MessageInput } from "./MessageInput";
 import React from "react";
+import { WelcomeMessage } from "./WelcomeMessage";
 
 export function ChatTab() {
   const {
@@ -21,8 +22,8 @@ export function ChatTab() {
     selectedAssistant,
     setSelectedAssistant,
     setSelectedModel,
-    docsGenerated
-    
+    generateSourceCodeAttachment,
+    sourceCode,
   } = useContextMasterContext();
 
   return (
@@ -35,21 +36,30 @@ export function ChatTab() {
         onNewConversation={createNewConversation}
         onSelectConversation={setCurrentConversation}
       />
-      <ChatWindow
-        messages={currentConversation?.messages || []}
-        error={error || undefined}
-        isAssistantTyping={isAssistantTyping}
-      />
-      <MessageInput
-        sendMessage={handleSendChatMessage}
-        assistants={assistants}
-        models={models}
-        selectedAssistant={selectedAssistant}
-        setSelectedAssistant={setSelectedAssistant}
-        selectedModel={selectedModel}
-        setSelectedModel={setSelectedModel}
-        hasDocumentation={docsGenerated}
-      />
+      {currentConversation ? (
+        <>
+          <ChatWindow
+            messages={currentConversation?.messages || []}
+            error={error || undefined}
+            isAssistantTyping={isAssistantTyping}
+          />
+          <MessageInput
+            sendMessage={handleSendChatMessage}
+            assistants={assistants}
+            models={models}
+            selectedAssistant={selectedAssistant}
+            setSelectedAssistant={setSelectedAssistant}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            generateSourceCodeAttachment={generateSourceCodeAttachment}
+            sourceCode={sourceCode}
+            isAssistantTyping={isAssistantTyping}
+            disabled={!isClientInitialized || !currentConversation}
+          />
+        </>
+      ) : (
+        <WelcomeMessage />
+      )}
     </div>
   );
 }

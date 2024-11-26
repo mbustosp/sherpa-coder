@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Message } from "@/types";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MessageSquare, Copy, Check, ChevronDown } from 'lucide-react';
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { dark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -11,108 +14,169 @@ interface ChatWindowProps {
   messages: Message[];
   error?: string;
   isAssistantTyping?: boolean;
+  autoScroll?: boolean;
 }
 
 const processMessageContent = (content: string): string => {
-  // First escape any existing $ symbols
   let replacedContent = content.replace(/\\\$/g, "\\dollar");
-
-  // Replace inline math delimiters \( \) with $ $
   replacedContent = replacedContent.replace(/\\\(\s*/g, "$");
   replacedContent = replacedContent.replace(/\s*\\\)/g, "$");
-
-  // Replace block math delimiters \[ \] with $ $ and proper spacing
   replacedContent = replacedContent.replace(/\\\[\s*/g, "\n\n$\n");
   replacedContent = replacedContent.replace(/\s*\\\]/g, "\n$\n\n");
-
-  // Restore escaped $ symbols
   replacedContent = replacedContent.replace(/\\dollar/g, "\\$");
-
   return replacedContent;
 };
+
 export function ChatWindow({
-  messages,
+  messages = [],
   error,
   isAssistantTyping,
+  autoScroll = true,
 }: ChatWindowProps) {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (autoScroll) {
+      scrollToBottom();
+    }
+  }, [messages, autoScroll]);
+
+  const handleCopyMessage = (messageId: string, content: string) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedMessageId(messageId);
+      setTimeout(() => setCopiedMessageId(null), 2000);
+    });
+  };
+
   return (
-    <div className="border rounded-md p-4 flex-grow overflow-y-auto">
-      <div className="chat">
+    <div className="border rounded-md p-4 flex flex-col h-[600px] max-h-[80vh]">
+      <div className="flex-grow overflow-y-auto mb-4">
         <div className="space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.sender === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-6">
+              <MessageSquare className="h-12 w-12 text-primary mb-4" />
+              <h2 className="text-2xl font-semibold mb-2">
+                Welcome to Sherpa Coder Chat! 👋
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                Your AI-powered coding assistant is ready to help.
+              </p>
+              <p className="text-lg font-medium mb-2">
+                💬 Send a message to start the conversation
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Ask questions, get explanations, or request code samples!
+              </p>
+            </div>
+          ) : (
+            messages.map((message) => (
               <div
-                className={`flex items-start space-x-2 max-w-[70%] ${
-                  message.sender === "user"
-                    ? "flex-row-reverse space-x-reverse"
-                    : ""
+                key={message.id}
+                className={`flex w-full ${
+                  message.sender === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                <Avatar className="w-8 h-8">
-                  <AvatarImage
-                    src={
-                      message.sender === "user"
-                        ? "/placeholder-user.jpg"
-                        : "/placeholder-assistant.jpg"
-                    }
-                  />
-                  <AvatarFallback>
-                    {message.sender === "user" ? "U" : "A"}
-                  </AvatarFallback>
-                </Avatar>
-                <div
-                  className={`rounded-lg p-3 w-full ${
+                <div className={`w-full max-w-3xl ${
+                  message.sender === "user" ? "pl-12" : "pr-12"
+                } relative`}>
+                  <div className={`rounded-lg p-3 ${
                     message.sender === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
-                  }`}
-                >
-                  <Markdown
-                    className="text-sm [&>p]:py-2 [&>.math-display]:text-center"
-                    remarkPlugins={[remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                    components={{
-                      code(props) {
-                        const { children, className, node, ...rest } = props;
-                        const match = /language-(\w+)/.exec(className || "");
-                        return match ? (
-                          <SyntaxHighlighter
-                            {...rest}
-                            PreTag="div"
-                            children={String(children).replace(/\n$/, "")}
-                            language={match[1]}
-                            style={dark}
-                          />
-                        ) : (
-                          <code {...rest} className={className}>
-                            {children}
-                          </code>
-                        );
-                      },
-                    }}
-                  >
-                    {processMessageContent(message.content)}
-                  </Markdown>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {message.timestamp}
-                  </p>
+                  }`}>
+                    <div className="relative">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-0 right-0 p-1 h-6 w-6"
+                              onClick={() => handleCopyMessage(message.id, message.content)}
+                            >
+                              {copiedMessageId === message.id ? (
+                                <Check className="h-4 w-4" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {copiedMessageId === message.id ? "Copied!" : "Copy message"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <Markdown
+                        className="text-sm [&>p]:py-2 [&>.math-display]:text-center pr-6"
+                        remarkPlugins={[remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={{
+                          code(props) {
+                            const { children, className, node, ...rest } = props;
+                            const match = /language-(\w+)/.exec(className || "");
+                            return match ? (
+                              <SyntaxHighlighter
+                                {...rest}
+                                PreTag="div"
+                                children={String(children).replace(/\n$/, "")}
+                                language={match[1]}
+                                style={dark}
+                              />
+                            ) : (
+                              <code {...rest} className={className}>
+                                {children}
+                              </code>
+                            );
+                          },
+                        }}
+                      >
+                        {processMessageContent(message.content)}
+                      </Markdown>
+                    </div>
+                    <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+                      <span>{new Date(message.timestamp).toLocaleString()}</span>
+                      <span className="font-semibold">
+                        {message.sender === "user" ? "You" : "Assistant"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
-        {error && <div className="chat__error">{error}</div>}
+        {error && <div className="text-red-500 mt-2">{error}</div>}
         {isAssistantTyping && (
-          <div className="chat__typing">
+          <div className="text-muted-foreground mt-2">
             Assistant is typing...
-            <button className="chat__cancel-btn">Cancel</button>
+            <button className="ml-2 text-primary">Cancel</button>
           </div>
         )}
+        <div ref={chatEndRef} />
+      </div>
+      <div className="relative">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute bottom-0 right-0"
+                onClick={scrollToBottom}
+              >
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Scroll to Bottom
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );

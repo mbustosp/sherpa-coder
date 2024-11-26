@@ -19,10 +19,16 @@ export class VSCodeEventHandler {
   private _generatedDocPath: string | undefined;
   private _uploadedFileId: string | undefined;
 
+  private async initializeWithStoredAccount(): Promise<void> {
+    const selectedAccountId = this.accountManager.getSelectedAccount();
+    if (selectedAccountId) {
+      await this.initializeOpenAIClient(selectedAccountId);
+    }
+  }
+
   private constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.accountManager = AccountManager.getInstance(context);
-    this.initializeEventListeners();
   }
 
   static getInstance(context: vscode.ExtensionContext): VSCodeEventHandler {
@@ -32,9 +38,6 @@ export class VSCodeEventHandler {
     return VSCodeEventHandler.instance;
   }
 
-  private initializeEventListeners(): void {
-    // Add other event listeners here
-  }
   public async handleWebviewMessage(message: {
     type: string;
     payload: any;
@@ -46,11 +49,8 @@ export class VSCodeEventHandler {
     });
 
     switch (message.type) {
-      case "upload":
-        this.handleUpload();
-        break;
       case "newConversation":
-        this.createNewConversation(message.payload.conversation);
+        this.createNewConversation(message.payload.selectedAccount, message.payload.conversation);
         break;
       case "createAccount":
         this.createAccount(message.payload.account);
@@ -66,18 +66,22 @@ export class VSCodeEventHandler {
         break;
       case "getAccounts":
         this.getAccounts();
+
         break;
       case "getApiKey":
         await this.initializeOpenAIClient(message.payload.accountId);
         break;
       case "selectAccount":
+        this.accountManager.setSelectedAccount(message.payload.accountId);
         await this.initializeOpenAIClient(message.payload.accountId);
         break;
       case "sendChatMessage":
         this.handleChatMessage(message.payload);
         break;
-      case "generateDocs":
-        this.generateDocs(message.payload);
+      case "generateSourceCodeAttachment":
+        this.handleGenerateSourceCodeAttachment();
+
+
         break;
       case "updateAssistant":
         this._currentAssistant = message.payload.assistantId;
@@ -91,11 +95,58 @@ export class VSCodeEventHandler {
           `[EventHandler] Updated current model: ${this._currentModel}`
         );
         break;
+      case "removeExtensionData":
+        console.log(`[EventHandler] Removing extension data`);
+        this.accountManager.deleteAllAccounts();
+        console.log(`[EventHandler] Extension data removed`);
       default:
         console.log(`Unhandled message type: ${message.type}`, message.payload);
     }
   }
 
+  async handleGenerateSourceCodeAttachment() {
+    try {
+      console.log('[handleGenerateSourceCodeAttachment] Starting source code attachment generation');
+      this.sendMessageToWebview("generateSourceCodeAttachmentStart", {});
+
+      console.log('[handleGenerateSourceCodeAttachment] Generating documentation');
+      const generatedFile = await this.generateDocs();
+      console.log('[handleGenerateSourceCodeAttachment] Generated file:', generatedFile);
+
+      const {
+        path,
+        filename,
+        size,
+        success: generationSuccess,
+      } = generatedFile;
+      console.log('[handleGenerateSourceCodeAttachment] Extracted file details:', { path, filename, size, generationSuccess });
+
+      console.log('[handleGenerateSourceCodeAttachment] Uploading file');
+      const uploadResult = await this.handleUpload(path);
+      console.log('[handleGenerateSourceCodeAttachment] Upload result:', uploadResult);
+
+      const {
+        fileId,
+        success: uploadSuccess,
+        uploadTime,
+      } = uploadResult;
+      console.log('[handleGenerateSourceCodeAttachment] Extracted upload details:', { fileId, uploadSuccess, uploadTime });
+
+      this.sendMessageToWebview("generateSourceCodeAttachmentSuccess", {
+        fileId,
+        filename,
+        size,
+        uploadDate: uploadTime,
+        uploadSuccess,
+      });
+      console.log('[handleGenerateSourceCodeAttachment] Successfully sent attachment to webview');
+    } catch (error) {
+      console.error('[handleGenerateSourceCodeAttachment] Error:', error);
+      this.sendMessageToWebview("generateSourceCodeAttachmentError", {
+        message: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+    }
+  }
   // Getters for the states
   public getCurrentAssistant(): string | undefined {
     return this._currentAssistant;
@@ -175,9 +226,7 @@ export class VSCodeEventHandler {
     }
 
     try {
-      console.log(
-        `[Chat] Getting conversation for ID: ${payload.conversationId}`
-      );
+      console.log(`[Chat] Getting conversation for ID: ${payload.conversationId}`);
       let conversation = await this.getConversation(
         payload.accountId,
         payload.conversationId
@@ -197,44 +246,47 @@ export class VSCodeEventHandler {
       this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
       this.sendMessageToWebview("updateConversation", { conversation });
 
-      console.log(`[Chat] Creating new thread with previous messages`);
-      const systemMessage = {
-        role: "user",
-        content: "Consult the attached file 'project-documentation.txt' for the source code"};
+      // Handle thread creation or retrieval
+      if (!conversation.threadId) {
+        console.log(`[Chat] No existing thread, creating new one`);
+        const thread = await this.openaiClient.beta.threads.create();
+        conversation.threadId = thread.id;
+        await this.updateConversation(payload.accountId, conversation);
+      } else {
+        console.log(`[Chat] Using existing thread: ${conversation.threadId}`);
+        try {
+          await this.openaiClient.beta.threads.retrieve(conversation.threadId);
+        } catch (error) {
+          console.log(`[Chat] Thread not found, creating new one`);
+          const thread = await this.openaiClient.beta.threads.create();
+          conversation.threadId = thread.id;
+          await this.updateConversation(payload.accountId, conversation);
+        }
+      }
 
-      console.log(`[Chat] Preparing thread messages with ${conversation.messages.length} previous messages`);
-      const threadMessages = [
-        systemMessage,
-        ...conversation.messages.map((msg) => {
-          const hasAttachment = payload.attachDoc && this._generatedDocPath;
-          console.log(`[Chat] Adding message from ${msg.sender}${hasAttachment ? ' with document attachment' : ''}`);
-          return {
-            role: msg.sender as "user" | "assistant",
-            content: msg.content,
-            ...(payload.attachDoc && this._generatedDocPath && {
-              attachments: [{ file_id: this._uploadedFileId, tools: [{ type: "file_search" }] }],
-            })
-          };
-        }),
-      ];
+      payload;
 
-      const thread = await this.openaiClient.beta.threads.create({
-        messages: threadMessages,
-      });
-
-      console.log(`[Chat] Created thread with ID: ${thread.id}`);
-
-      console.log(
-        `[Chat] Starting thread run with assistant: ${payload.assistant}`
+      // Add message to thread
+      await this.openaiClient.beta.threads.messages.create(
+        conversation.threadId,
+        {
+          role: "user",
+          content: payload.message,
+          ...(payload.attachDoc && this._generatedDocPath && {
+            attachments: [{ file_id: this._uploadedFileId, tools: [{ type: "file_search" }] }],
+          })
+        }
       );
-      const run = await this.openaiClient.beta.threads.runs.create(thread.id, {
+
+      console.log(`[Chat] Starting thread run with assistant: ${payload.assistant}`);
+      const run = await this.openaiClient.beta.threads.runs.create(conversation.threadId, {
         assistant_id: payload.assistant,
         model: payload.model,
       });
 
       console.log(`[Chat] Waiting for run completion. Run ID: ${run.id}`);
       let response = await this.openaiClient.beta.threads.runs.retrieve(
-        thread.id,
+        conversation.threadId,
         run.id
       );
       while (
@@ -244,7 +296,7 @@ export class VSCodeEventHandler {
         console.log(`[Chat] Run status: ${response.status}`);
         await new Promise((resolve) => setTimeout(resolve, 1000));
         response = await this.openaiClient.beta.threads.runs.retrieve(
-          thread.id,
+          conversation.threadId,
           run.id
         );
       }
@@ -252,7 +304,7 @@ export class VSCodeEventHandler {
 
       console.log(`[Chat] Retrieving thread messages`);
       const messages = await this.openaiClient.beta.threads.messages.list(
-        thread.id
+        conversation.threadId
       );
 
       console.log(`[Chat] Creating assistant message`);
@@ -281,11 +333,12 @@ export class VSCodeEventHandler {
     }
   }
 
-  private async generateDocs(payload: {
-    accountId: string;
-    assistantId: string;
-    modelId: string;
-  }): Promise<void> {
+  private async generateDocs(): Promise<{
+    path: string,
+    filename: string,
+    size: number,
+    success: boolean,
+  } | undefined> {
     console.log("[EventHandler] Starting documentation generation");
     console.log("[EventHandler] Checking workspace folders");
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -314,17 +367,17 @@ export class VSCodeEventHandler {
       console.log("[EventHandler] Writing markdown file");
       const markdownContent = Buffer.from(markdown);
       await vscode.workspace.fs.writeFile(markdownUri, markdownContent);
-      
+
       console.log("[EventHandler] Storing generated Markdown path");
       this._generatedDocPath = markdownUri.fsPath;
 
-      console.log("[EventHandler] Getting PDF stats");
-      const pdfStats = await fsProm.stat(markdownUri.fsPath);
+      console.log("[EventHandler] Getting file stats");
+      const fileStats = await fsProm.stat(markdownUri.fsPath);
       console.log("[EventHandler] Sending success message to webview");
-      this.sendMessageToWebview("docsGenerated", {
-        path: sherpaDir,
+      return ({
+        path: markdownUri.fsPath,
         filename: markdownFileName,
-        size: pdfStats.size,
+        size: fileStats.size,
         success: true,
       });
     } catch (error) {
@@ -382,7 +435,7 @@ Below is the directory structure of the project source code. Each file section t
 
       for (const [name, type] of entries) {
         const relativePath = path.relative(rootPath, path.join(dir, name));
-        if (ig.ignores(relativePath)) continue;
+        if (ig.ignores(relativePath)) { continue; }
 
         const fullPath = path.join(dir, name);
         if (type === vscode.FileType.Directory) {
@@ -428,14 +481,14 @@ ${content.toString()}
 
 `;
     };
-    
+
     const processDirectory = async (dir: string): Promise<void> => {
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
       for (const [name, type] of entries) {
         const relativePath = path.relative(rootPath, path.join(dir, name));
-        if (ig.ignores(relativePath)) continue;
+        if (ig.ignores(relativePath)) { continue; }
 
         const fullPath = path.join(dir, name);
         if (type === vscode.FileType.Directory) {
@@ -448,17 +501,12 @@ ${content.toString()}
 
     await processDirectory(rootPath);
     return markdown;
-}
+  }
 
-  private async getConversation(
-    accountId: string,
-    conversationId: string
-  ): Promise<Conversation> {
+  private async getConversation(accountId: string, conversationId: string): Promise<Conversation> {
     const accounts = this.accountManager.getAccounts();
     const account = accounts.find((acc) => acc.id === accountId);
-    let conversation = account?.conversations?.find(
-      (conv) => conv.id === conversationId
-    );
+    let conversation = account?.conversations?.find((conv) => conv.id === conversationId);
 
     if (!conversation) {
       conversation = {
@@ -467,7 +515,20 @@ ${content.toString()}
         date: new Date().toISOString().split("T")[0],
         messages: [],
         lastMessage: "",
+        threadId: null
       };
+    }
+
+    // Verify thread exists if we have one
+    if (conversation.threadId && this.openaiClient) {
+      try {
+        await this.openaiClient.beta.threads.retrieve(conversation.threadId);
+      } catch (error) {
+        console.log(`[Chat] Thread ${conversation.threadId} not found, creating new thread`);
+        const newThread = await this.openaiClient.beta.threads.create();
+        conversation.threadId = newThread.id;
+        await this.updateConversation(accountId, conversation);
+      }
     }
 
     return conversation;
@@ -550,32 +611,45 @@ ${content.toString()}
 
   private async getAccounts(): Promise<void> {
     const accounts = this.accountManager.getAccounts();
+    const selectedAccountId = this.accountManager.getSelectedAccount();
+    this.initializeWithStoredAccount();
     console.log(`[Account Handler] Getting accounts:`, accounts);
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
         command: "updateAccounts",
         accounts: accounts,
+        selectedAccountId: selectedAccountId,
       });
     }
   }
 
-  private async handleUpload(): Promise<void> {
-    if (!this._generatedDocPath) {
+  private async handleUpload(filePath: string): Promise<{
+    fileName: string,
+    fileId: string,
+    success: boolean,
+    uploadTime: Date,
+  } | undefined> {
+    if (!filePath) {
       this.sendMessageToWebview("error", {
         message: "No documentation file generated yet",
       });
       return;
     }
 
-    await this.uploadFileOpenAI(this._generatedDocPath);
+    return await this.uploadFileOpenAI(filePath);
   }
 
-  private createNewConversation(conversation: any): void {
+  private createNewConversation(selectedAccount: any, conversation: any): void {
     console.log(
       `[Conversation Handler] Creating new conversation:`,
+      selectedAccount,
       conversation
     );
-    // Implement the logic to handle creating a new conversation
+    if (selectedAccount) {
+      selectedAccount.conversations = selectedAccount.conversations || [];
+      selectedAccount.conversations.push(conversation);
+      this.accountManager.storeAccount(selectedAccount);
+    }
   }
 
   private async createAccount(account: any): Promise<void> {
@@ -611,49 +685,61 @@ ${content.toString()}
     this.disposables.forEach((disposable) => disposable.dispose());
   }
 
-  private async uploadFileOpenAI(filePath: string): Promise<void> {
+  private async uploadFileOpenAI(filePath: string): Promise<{
+    fileName: string,
+    fileId: string,
+    success: boolean,
+    uploadTime: Date,
+  } | undefined> {
     if (!this.openaiClient) {
-        console.log("[EventHandler] OpenAI client not initialized");
-        this.sendMessageToWebview("error", {
-            message: "Please ensure your API key is set"
-        });
-        return;
+      console.log("[EventHandler] OpenAI client not initialized");
+      this.sendMessageToWebview("error", {
+        message: "Please ensure your API key is set"
+      });
+      return;
     }
-
-    this.sendMessageToWebview("uploadStart", {});
 
     try {
-        const stats = await fsProm.stat(filePath);
-        console.log(`[EventHandler] File found: ${filePath}`);
-        console.log(`[EventHandler] File size: ${stats.size} bytes`);
+      const stats = await fsProm.stat(filePath);
+      console.log(`[EventHandler] File found: ${filePath}`);
+      console.log(`[EventHandler] File size: ${stats.size} bytes`);
 
-        const fileContent = await fsProm.readFile(filePath);
-        const fileName = path.basename(filePath);
+      const fileContent = await fsProm.readFile(filePath);
+      const fileName = path.basename(filePath);
 
-        const blob = new Blob([fileContent], { type: "text/markdown" });
-        const file = new File([blob], fileName, { type: "text/markdown" });
+      const blob = new Blob([fileContent], { type: "text/markdown" });
+      const file = new File([blob], fileName, { type: "text/markdown" });
 
-        const uploadedFile = await this.openaiClient.files.create({
-            file,
-            purpose: "assistants"
-        });
+      const uploadedFile = await this.openaiClient.files.create({
+        file,
+        purpose: "assistants"
+      });
 
-        this._uploadedFileId = uploadedFile.id;
+      const uploadTime = new Date();
 
-        console.log(`[EventHandler] File uploaded successfully with ID: ${uploadedFile.id}`);
+      this._uploadedFileId = uploadedFile.id;
 
-        this.sendMessageToWebview("uploadComplete", {
-            fileName,
-            fileId: uploadedFile.id,
-            success: true
-        });
+      console.log(`[EventHandler] File uploaded successfully with ID: ${uploadedFile.id}`);
+
+      return ({
+        fileName,
+        fileId: uploadedFile.id,
+        success: true,
+        uploadTime
+      });
+      /* this.sendMessageToWebview("uploadComplete", {
+          fileName,
+          fileId: uploadedFile.id,
+          success: true,
+          uploadTime
+      }); */
 
     } catch (error) {
-        console.error("[EventHandler] Error uploading file:", error);
-        this.sendMessageToWebview("error", {
-            message: "Error uploading file: " + (error as Error).message
-        });
+      console.error("[EventHandler] Error uploading file:", error);
+      this.sendMessageToWebview("error", {
+        message: "Error uploading file: " + (error as Error).message
+      });
     }
-}
-  
+  }
+
 }

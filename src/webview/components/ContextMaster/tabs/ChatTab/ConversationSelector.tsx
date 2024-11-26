@@ -53,48 +53,71 @@ export function ConversationSelector({
   }
 
   return (
-    <div className="flex justify-between items-center gap-2 mb-2 w-full flex-wrap">
+    <div className="flex justify-between items-center gap-2 w-full flex-wrap">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild disabled={disabled} className="min-w-0">
-          <Button variant="outline" className="w-full justify-between" disabled={disabled}>
-            <div className="text-sm text-muted-foreground break-words overflow-x-hidden">
+      <DropdownMenuTrigger asChild disabled={disabled} className="min-w-0">
+        <Button variant="outline" className="w-full justify-between" disabled={disabled}>
+          <div className="text-sm text-muted-foreground break-words overflow-x-hidden">
             {currentConversation?.title || "Select Conversation"}
-            </div>
-            <ChevronDown className="ml-2 h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-80">
-          <DropdownMenuLabel>Conversations</DropdownMenuLabel>
+          </div>
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-80">
+        <DropdownMenuLabel>Conversations</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <ScrollArea className="h-[300px]">
+          <DropdownMenuItem 
+            onSelect={() => setIsNewConversationDialogOpen(true)}
+            disabled={disabled}
+            className="cursor-pointer"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            <span>Create New Conversation</span>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <ScrollArea className="h-[300px]">
-            {conversations?.map((conversation) => (
+          {conversations.length === 0 ? (
+            <div className="p-2 text-sm text-muted-foreground text-center">
+              No conversations yet. Create one to get started!
+            </div>
+          ) : (
+            conversations.map((conversation) => (
               <DropdownMenuItem 
                 key={conversation.id} 
                 onSelect={() => onSelectConversation(conversation)}
                 disabled={disabled}
+                className="cursor-pointer"
               >
-                <div className="w-full">
-                  <div className="font-medium">{conversation.title}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {conversation.date} • {conversation.messages?.length || 0} messages
+                <div className="w-full flex justify-between items-start">
+                  <div className="flex-grow pr-2">
+                    <div className="font-medium">{conversation.title}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {conversation.date} • {conversation.messages?.length || 0} messages
+                    </div>
+                    <div className="text-sm text-muted-foreground break-words">
+                      {conversation.messages[0]?.content?.slice(0, 100) || ''}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground break-words">
-                    {conversation.lastMessage?.slice(0, 100)}
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDeleteConversation(conversation.id)
+                    }}
+                    className="h-6 w-6 flex-shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </DropdownMenuItem>
-            ))}
-          </ScrollArea>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            ))
+          )}
+        </ScrollArea>
+      </DropdownMenuContent>
+    </DropdownMenu>
       <div className="flex flex-grow gap-2">
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogTrigger asChild>
-          <Button onClick={() => setIsDeleteDialogOpen(true)} className="w-full" variant="outline" disabled={disabled || !currentConversation}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Conversation</DialogTitle>
@@ -110,12 +133,6 @@ export function ConversationSelector({
       </Dialog>
 
       <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
-        <DialogTrigger asChild>
-          <Button onClick={() => setIsNewConversationDialogOpen(true)} className="w-full" variant="outline" disabled={disabled}>
-            <Plus className="w-4 h-4 mr-2" />
-            New
-          </Button>
-        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Conversation</DialogTitle>

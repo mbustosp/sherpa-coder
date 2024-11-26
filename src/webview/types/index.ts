@@ -20,6 +20,7 @@ export type Conversation = {
   date: string;
   messages: Message[];
   lastMessage: string;
+  threadId: string | null;
 }
 
 export interface VSCodeAPI {

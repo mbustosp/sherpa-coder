@@ -9,15 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-import { MessageSquare, Settings } from "lucide-react";
+import { MessageSquare, Settings, FileCode2, RefreshCw, Upload, Check, ChevronDown, Info } from 'lucide-react';
 import { cn } from "@/lib/utils";
+
+import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/webview/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/webview/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/webview/components/ui/popover";
+import { Badge } from "@/webview/components/ui/badge";
 import { Switch } from "@/webview/components/ui/switch";
 import { Label } from "@/webview/components/ui/label";
 
@@ -28,10 +27,11 @@ interface Assistant {
 
 interface Model {
   id: string;
+  name: string;
 }
 
 interface MessageInputProps {
-  sendMessage: (message: string, attachDoc: boolean) => void;
+  sendMessage: (message: string, includeSourceCode: boolean) => void;
   assistants: Assistant[];
   models: Model[];
   selectedAssistant: string;
@@ -40,7 +40,12 @@ interface MessageInputProps {
   setSelectedModel: (model: string) => void;
   disabled?: boolean;
   isAssistantTyping: boolean;
-  hasDocumentation?: boolean;
+  sourceCode: {
+    available: boolean;
+    lastUpdated: Date | null;
+    loading: boolean;
+  };
+  generateSourceCodeAttachment: () => void;
 }
 
 export function MessageInput({
@@ -53,16 +58,17 @@ export function MessageInput({
   setSelectedModel,
   disabled = false,
   isAssistantTyping,
-  hasDocumentation = false,
+  sourceCode,
+  generateSourceCodeAttachment,
 }: MessageInputProps) {
   const [message, setMessage] = React.useState("");
-  const [attachDoc, setAttachDoc] = React.useState(false);
+  const [includeSourceCode, setIncludeSourceCode] = React.useState(false);
 
   const handleSendMessage = () => {
     if (message.trim()) {
-      sendMessage(message, attachDoc);
+      sendMessage(message, includeSourceCode);
       setMessage("");
-      setAttachDoc(false);
+      setIncludeSourceCode(false);
     }
   };
 
@@ -71,6 +77,14 @@ export function MessageInput({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const getSelectedAssistantName = () => {
+    return assistants.find(a => a.id === selectedAssistant)?.name || "Select Assistant";
+  };
+
+  const getSelectedModelName = () => {
+    return models.find(m => m.id === selectedModel)?.name || "Select Model";
   };
 
   return (
@@ -90,16 +104,14 @@ export function MessageInput({
               <Button variant="outline" size="sm" className="text-xs">
                 <Settings className="w-3 h-3 mr-1" />
                 Settings
+                <ChevronDown className="w-3 h-3 ml-1" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80">
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <h4 className="font-medium leading-none">Assistant</h4>
-                  <Select
-                    value={selectedAssistant}
-                    onValueChange={setSelectedAssistant}
-                  >
+                  <Select value={selectedAssistant} onValueChange={setSelectedAssistant}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Assistant" />
                     </SelectTrigger>
@@ -117,10 +129,7 @@ export function MessageInput({
                 </div>
                 <div className="space-y-2">
                   <h4 className="font-medium leading-none">Model</h4>
-                  <Select
-                    value={selectedModel}
-                    onValueChange={setSelectedModel}
-                  >
+                  <Select value={selectedModel} onValueChange={setSelectedModel}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Model" />
                     </SelectTrigger>
@@ -129,37 +138,84 @@ export function MessageInput({
                         <SelectLabel>Models</SelectLabel>
                         {models.map((model) => (
                           <SelectItem key={model.id} value={model.id}>
-                            {model.id}
+                            {model.name}
                           </SelectItem>
                         ))}
                       </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
-                {hasDocumentation && (
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="attach-doc"
-                      checked={attachDoc}
-                      onCheckedChange={setAttachDoc}
-                    />
-                    <Label
-                      htmlFor="attach-doc"
-                      className="text-sm cursor-pointer"
+                <Separator />
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Source Code</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Generate and upload project source code for better context.
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <Button
+                      size="sm"
+                      onClick={generateSourceCodeAttachment}
+                      disabled={sourceCode.loading}
                     >
-                      Include project source
-                    </Label>
+                      <FileCode2 className="w-3 h-3 mr-1" />
+                      {sourceCode.loading ? (
+                        <>
+                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                          Generating...
+                        </>
+                      ) : sourceCode.available ? (
+                        <>
+                          <Check className="w-3 h-3 mr-1" />
+                          Regenerate
+                        </>
+                      ) : (
+                        "Generate & Upload"
+                      )}
+                    </Button>
+                    {sourceCode.lastUpdated && (
+                      <Badge variant="secondary" className="text-xs">
+                        Updated: {sourceCode.lastUpdated.toLocaleTimeString()}
+                      </Badge>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </PopoverContent>
           </Popover>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-source"
+                    checked={includeSourceCode}
+                    onCheckedChange={setIncludeSourceCode}
+                    disabled={!sourceCode.available}
+                  />
+                  <Label htmlFor="include-source" className="text-sm cursor-pointer">
+                    Include source code
+                  </Label>
+                  {!sourceCode.available && (
+                    <Info className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                {sourceCode.available
+                  ? "Include project source code in your message"
+                  : "Generate source code in settings first"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {isAssistantTyping && (
             <span className="text-xs text-muted-foreground animate-pulse">
               Assistant is typing...
             </span>
           )}
         </div>
+
         <Button
           onClick={handleSendMessage}
           disabled={disabled || !message.trim()}

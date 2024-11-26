@@ -9,9 +9,6 @@ export function useContextMaster() {
   >(null);
   const [currentConversation, setCurrentConversation] =
     React.useState<Conversation | null>(null);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [uploadProgress, setUploadProgress] = React.useState(0);
-  const [docsGenerated, setDocsGenerated] = React.useState(false);
   const [isFullScreen, setIsFullScreen] = React.useState(false);
   const [selectedAssistant, setSelectedAssistant] = React.useState("");
   const [selectedModel, setSelectedModel] = React.useState("");
@@ -22,13 +19,11 @@ export function useContextMaster() {
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = React.useState(false);
-  const [isGeneratingDocs, setIsGeneratingDocs] = React.useState(false);
-  const [generatedDocsInfo, setGeneratedDocsInfo] = React.useState<{
-    path: string;
-    filename: string;
-    size: number;
-    success: boolean;
-  } | null>(null);
+  const [sourceCode, setSourceCode] = React.useState<{
+    available: boolean;
+    lastUpdated: Date | null;
+    loading: boolean;
+  }>({ available: false, lastUpdated: null, loading: false });
 
   const selectedAccount =
     accounts.find((account) => account.id === selectedAccountId) || null;
@@ -43,27 +38,16 @@ export function useContextMaster() {
       switch (message.command) {
         case "updateAccounts":
           console.debug("Updating accounts:", message.accounts);
+          console.debug("Selected Account Id:", message.selectedAccountId);
           setAccounts(message.accounts);
+          if (message.selectedAccountId) {
+            setSelectedAccountId(message.selectedAccountId);
+          }
           setIsLoading(false);
           break;
         case "updateConversation":
           console.debug("Updating conversation:", message.conversation);
           setCurrentConversation(message.conversation);
-          break;
-        case "uploadComplete":
-          console.debug("Upload completed");
-          setIsUploading(false);
-          setDocsGenerated(true);
-          setUploadProgress(100);
-          new Promise((resolve) =>
-            setTimeout(() => {
-              setIsLoading(false);
-              setIsGeneratingDocs(false);
-              setIsUploading(false);
-              setUploadProgress(0);
-              resolve(true);
-            }, 3000)
-          );
           break;
         case "updateLists":
           console.log("Updating lists:", {
@@ -71,38 +55,41 @@ export function useContextMaster() {
             models: message.models,
           });
           setAssistants(message.assistants);
-          setModels(message.models);
+          setModels(
+            message.models?.map((model) => ({ ...model, name: model.id }))
+          );
           setIsLoading(false);
           break;
         case "error":
           console.debug("Error received:", message.message);
           setError(message.message);
           setIsLoading(false);
-          setIsGeneratingDocs(false);
-          setIsUploading(false);
-          setUploadProgress(0);
           break;
         case "updateTypingStatus":
           setIsAssistantTyping(message.isTyping);
           setIsLoading(message.isTyping);
           break;
-        case "docsGenerated":
-          console.debug("Docs generated:", message);
-          if (message.success) {
-            setGeneratedDocsInfo({
-              path: message.path,
-              filename: message.filename,
-              size: message.size,
-              success: message.success,
-            });
-            setDocsGenerated(true);
-          } else {
-            setError("Failed to generate docs");
-          }
-          setIsLoading(false);
-          setIsUploading(false);
-          setUploadProgress(0);
-          setIsGeneratingDocs(false);
+        case "generateSourceCodeAttachmentStart":
+          setSourceCode({
+            available: false,
+            lastUpdated: null,
+            loading: true,
+          });
+          break;
+        case "generateSourceCodeAttachmentSuccess":
+          setSourceCode({
+            available: true,
+            lastUpdated: new Date(message?.uploadDate),
+            loading: false,
+          });
+          break;
+        case "generateSourceCodeAttachmentError":
+          setSourceCode({
+            available: false,
+            lastUpdated: null,
+            loading: false,
+          });
+          setError("Failed to generate docs");
           break;
       }
     };
@@ -146,24 +133,19 @@ export function useContextMaster() {
   const isClientInitialized =
     models?.length && selectedAccountId !== null && !isLoading;
 
-  const handleUpload = () => {
-    setIsUploading(true);
-    sendMessage("upload", { accountId: selectedAccountId });
-    setUploadProgress(0);
-    setIsUploading(true);
-  };
-
-  const createNewConversation = () => {
+  const createNewConversation = (conversationTitle: string) => {
     if (!selectedAccount) return;
 
     const newId = crypto.randomUUID();
     const newConversation = {
       id: newId,
-      title: `Conversation ${newId}`,
+      title: `Conversation ${conversationTitle || newId}`,
       date: new Date().toISOString().split("T")[0],
       messages: [],
       lastMessage: "",
     };
+
+    console.log("Creating new conversation:", newConversation);
 
     const updatedAccount = {
       ...selectedAccount,
@@ -178,18 +160,7 @@ export function useContextMaster() {
       )
     );
     setCurrentConversation(newConversation);
-    sendMessage("newConversation", { conversation: newConversation });
-  };
-
-  const handleGenerateDocs = () => {
-    if (!selectedAccount) return;
-
-    setIsGeneratingDocs(true);
-    sendMessage("generateDocs", {
-      accountId: selectedAccount.id,
-      assistantId: selectedAssistant,
-      modelId: selectedModel,
-    });
+    sendMessage("newConversation", { selectedAccount, conversation: newConversation });
   };
 
   const handleDeleteConversation = (conversationId: string) => {
@@ -245,6 +216,18 @@ export function useContextMaster() {
     sendMessage("deleteAccount", { accountId });
   };
 
+  const handleRemoveExtensionData = () => {
+    sendMessage("removeExtensionData", {});
+    setAccounts([]);
+    setSelectedAccountId(null);
+    setCurrentConversation(null);
+    setNewAccountName("");
+    setNewAccountApiKey("");
+    setError(null);
+    setSelectedAssistant("");
+    setSelectedModel("");
+  };
+
   const onSelectConversation = (conversationId: string) => {
     if (!selectedAccount) return;
 
@@ -257,13 +240,6 @@ export function useContextMaster() {
     }
   };
 
-  const setCurrentConversationR = (conversation: Conversation | null) => {
-    setCurrentConversation(conversation);
-    if (conversation) {
-      sendMessage("updateConversation", { conversation });
-    }
-  };
-
   const handleSendChatMessage = (message: string, attachDoc?: boolean) => {
     if (!currentConversation || !selectedAccount) return;
 
@@ -273,7 +249,7 @@ export function useContextMaster() {
       message,
       assistant: selectedAssistant,
       model: selectedModel,
-      attachDoc
+      attachDoc,
     });
   };
 
@@ -281,9 +257,8 @@ export function useContextMaster() {
     setError(null);
   };
 
-  const dismissDocsGenerated = () => {
-    setDocsGenerated(false);
-    setGeneratedDocsInfo(null);
+  const generateSourceCodeAttachment = () => {
+    sendMessage("generateSourceCodeAttachment", {});
   };
 
   return {
@@ -291,10 +266,6 @@ export function useContextMaster() {
     selectedAccountId,
     selectedAccount,
     currentConversation,
-    isUploading,
-    uploadProgress,
-    docsGenerated,
-    generatedDocsInfo,
     isFullScreen,
     selectedAssistant,
     selectedModel,
@@ -306,14 +277,12 @@ export function useContextMaster() {
     isClientInitialized,
     isLoading,
     isAssistantTyping,
-    isGeneratingDocs,
     setSelectedAccountId,
     setSelectedAssistant,
     setSelectedModel,
     setNewAccountName,
     setNewAccountApiKey,
     toggleFullScreen: () => setIsFullScreen(!isFullScreen),
-    handleUpload,
     createNewConversation,
     handleCreateAccount,
     handleDeleteAccount,
@@ -323,7 +292,8 @@ export function useContextMaster() {
     sendMessageToExtension: sendMessage,
     handleSendChatMessage,
     dismissError,
-    handleGenerateDocs,
-    dismissDocsGenerated,
+    handleRemoveExtensionData,
+    sourceCode,
+    generateSourceCodeAttachment,
   };
 }
