@@ -1,21 +1,18 @@
 
-import { Minimize2, Maximize2 } from 'lucide-react'
 import React from "react";
-import { Button } from '../ui/button';
 import { CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { cn } from '@/lib/utils';
 
 interface HeaderProps {
-  isFullScreen: boolean;
-  onToggleFullScreen: () => void;
+  className?: string;
 }
 
-export function Header({ isFullScreen, onToggleFullScreen }: HeaderProps) {
+export function Header({ className }: HeaderProps) {
   return (
-    <CardHeader className='flex-initial'>
+    <CardHeader className={cn('flex-initial', className)}>
       <div className="flex items-center justify-between">
         <div>
-          <CardTitle>Sherpa Coder Chat</CardTitle>
-          <CardDescription className="mt-2">
+          <CardDescription className="">
             Sherpa Coder is an extension that allows you to use the power of OpenAI assistants in VSCode.
           </CardDescription>
         </div>

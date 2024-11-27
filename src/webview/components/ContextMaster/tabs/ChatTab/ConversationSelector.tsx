@@ -53,7 +53,7 @@ export function ConversationSelector({
   }
 
   return (
-    <div className="flex justify-between items-center gap-2 w-full flex-wrap">
+    <div className="flex justify-between items-center w-full flex-wrap min-h-9">
       <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled} className="min-w-0">
         <Button variant="outline" className="w-full justify-between" disabled={disabled}>

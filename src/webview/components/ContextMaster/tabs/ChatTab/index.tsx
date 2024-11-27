@@ -27,7 +27,7 @@ export function ChatTab() {
   } = useContextMasterContext();
 
   return (
-    <div className="space-y-4 flex flex-col overflow-y-hidden">
+    <div className="space-y-4 flex flex-col flex-auto overflow-y-hidden">
       <ConversationSelector
         disabled={!isClientInitialized}
         onDeleteConversation={handleDeleteConversation}

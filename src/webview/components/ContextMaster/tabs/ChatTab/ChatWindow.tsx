@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { MessageSquare, Copy, Check, ChevronDown } from 'lucide-react';
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { dark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
 
@@ -54,7 +54,7 @@ export function ChatWindow({
   };
 
   return (
-    <div className="border rounded-md p-4 flex flex-col h-[600px] max-h-[80vh]">
+    <div className="border rounded-md py-2 flex flex-col flex-auto overflow-y-hidden">
       <div className="flex-grow overflow-y-auto mb-4">
         <div className="space-y-4">
           {messages.length === 0 ? (
@@ -82,7 +82,7 @@ export function ChatWindow({
                 }`}
               >
                 <div className={`w-full max-w-3xl ${
-                  message.sender === "user" ? "pl-12" : "pr-12"
+                  message.sender === "user" ? "" : ""
                 } relative`}>
                   <div className={`rounded-lg p-3 ${
                     message.sender === "user"
@@ -120,19 +120,42 @@ export function ChatWindow({
                             const { children, className, node, ...rest } = props;
                             const match = /language-(\w+)/.exec(className || "");
                             return match ? (
-                              <SyntaxHighlighter
-                                {...rest}
-                                PreTag="div"
-                                children={String(children).replace(/\n$/, "")}
-                                language={match[1]}
-                                style={dark}
-                              />
+                              <div className="relative">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 z-10"
+                                        onClick={() => handleCopyMessage(message.id, String(children))}
+                                      >
+                                        {copiedMessageId === message.id ? (
+                                          <Check className="h-4 w-4" />
+                                        ) : (
+                                          <Copy className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {copiedMessageId === message.id ? "Copied!" : "Copy code"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <SyntaxHighlighter
+                                  {...rest}
+                                  PreTag="div"
+                                  children={String(children).replace(/\n$/, "")}
+                                  language={match[1]}
+                                  style={oneLight}
+                                />
+                              </div>
                             ) : (
                               <code {...rest} className={className}>
                                 {children}
                               </code>
                             );
-                          },
+                          }
                         }}
                       >
                         {processMessageContent(message.content)}

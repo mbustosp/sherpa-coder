@@ -8,17 +8,15 @@ import { ChatTab } from "./tabs/ChatTab"
 
 export default function ContextMaster() {
   const {
-    isFullScreen,
-    toggleFullScreen,
     isClientInitialized,
   } = useContextMasterContext()
 
   return (
 
-    <Card className={`flex flex-col w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none'}`}>
-      <Header isFullScreen={isFullScreen} onToggleFullScreen={toggleFullScreen} />
-      <CardContent className="flex grow flex-auto overflow-y-hidden">
-        <Tabs defaultValue={isClientInitialized ? "chat" : "account"} className="flex flex-col w-full">
+    <Card className={`flex flex-col w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none h-screen'}`}>
+      <Header className="px-6 pt-4 pb-0" />
+      <CardContent className="flex grow flex-auto overflow-y-hidden p-4">
+        <Tabs defaultValue={isClientInitialized ? "chat" : "account"} className="flex flex-col flex-auto w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="chat" disabled={!isClientInitialized}>Chat</TabsTrigger>
             <TabsTrigger value="account">Account</TabsTrigger>

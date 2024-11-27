@@ -1,24 +1,12 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { MessageSquare, Settings, FileCode2, RefreshCw, Upload, Check, ChevronDown, Info } from 'lucide-react';
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { MessageSquare, Settings, Bot, Sparkles, FileCode2, Upload } from 'lucide-react';
+import { cn } from "@/lib/utils";
 import { Textarea } from "@/webview/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/webview/components/ui/popover";
-import { Badge } from "@/webview/components/ui/badge";
-import { Switch } from "@/webview/components/ui/switch";
-import { Label } from "@/webview/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/webview/components/ui/dialog";
+import { ScrollArea } from "@/webview/components/ui/scroll-area";
 
 interface Assistant {
   id: string;
@@ -43,9 +31,9 @@ interface MessageInputProps {
   sourceCode: {
     available: boolean;
     lastUpdated: Date | null;
-    loading: boolean;
   };
-  generateSourceCodeAttachment: () => void;
+  generateSourceCode: () => void;
+  uploadSourceCode: () => void;
 }
 
 export function MessageInput({
@@ -59,10 +47,14 @@ export function MessageInput({
   disabled = false,
   isAssistantTyping,
   sourceCode,
-  generateSourceCodeAttachment,
+  generateSourceCode,
+  uploadSourceCode,
 }: MessageInputProps) {
   const [message, setMessage] = React.useState("");
   const [includeSourceCode, setIncludeSourceCode] = React.useState(false);
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+  const [tempSelectedAssistant, setTempSelectedAssistant] = React.useState(selectedAssistant);
+  const [tempSelectedModel, setTempSelectedModel] = React.useState(selectedModel);
 
   const handleSendMessage = () => {
     if (message.trim()) {
@@ -79,148 +71,132 @@ export function MessageInput({
     }
   };
 
-  const getSelectedAssistantName = () => {
-    return assistants.find(a => a.id === selectedAssistant)?.name || "Select Assistant";
+  const handleDialogClose = (save: boolean) => {
+    if (save) {
+      setSelectedAssistant(tempSelectedAssistant);
+      setSelectedModel(tempSelectedModel);
+    } else {
+      setTempSelectedAssistant(selectedAssistant);
+      setTempSelectedModel(selectedModel);
+    }
+    setIsDialogOpen(false);
   };
 
-  const getSelectedModelName = () => {
-    return models.find(m => m.id === selectedModel)?.name || "Select Model";
-  };
+  const selectedModelDetails = models.find(m => m.id === selectedModel);
+  const selectedAssistantDetails = assistants.find(a => a.id === selectedAssistant);
 
   return (
     <div className="flex flex-col border rounded-lg bg-background shadow-sm">
+      <div className="flex items-center justify-between px-3 py-2 bg-muted/50 text-xs text-muted-foreground">
+        <div className="flex items-center space-x-2">
+          <span>Model: {selectedModelDetails?.name || "Not selected"}</span>
+          <span>•</span>
+          <span>Assistant: {selectedAssistantDetails?.name || "Not selected"}</span>
+        </div>
+        {isAssistantTyping && (
+          <span className="animate-pulse">Assistant is typing...</span>
+        )}
+      </div>
       <Textarea
         placeholder="Type your message..."
-        className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[100px] max-h-[200px]"
+        className="resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 h-[100px]"
         disabled={disabled}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleInputKeyPress}
       />
       <div className="flex items-center justify-between p-2 border-t">
-        <div className="flex items-center space-x-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs">
-                <Settings className="w-3 h-3 mr-1" />
-                Settings
-                <ChevronDown className="w-3 h-3 ml-1" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Assistant</h4>
-                  <Select value={selectedAssistant} onValueChange={setSelectedAssistant}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Assistant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Assistants</SelectLabel>
-                        {assistants.map((assistant) => (
-                          <SelectItem key={assistant.id} value={assistant.id}>
-                            {assistant.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Model</h4>
-                  <Select value={selectedModel} onValueChange={setSelectedModel}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Models</SelectLabel>
-                        {models.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Separator />
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Source Code</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Generate and upload project source code for better context.
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <Button
-                      size="sm"
-                      onClick={generateSourceCodeAttachment}
-                      disabled={sourceCode.loading}
-                    >
-                      <FileCode2 className="w-3 h-3 mr-1" />
-                      {sourceCode.loading ? (
-                        <>
-                          <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                          Generating...
-                        </>
-                      ) : sourceCode.available ? (
-                        <>
-                          <Check className="w-3 h-3 mr-1" />
-                          Regenerate
-                        </>
-                      ) : (
-                        "Generate & Upload"
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="text-xs">
+              <Settings className="w-3 h-3 mr-2" />
+              Settings
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Chat Settings</DialogTitle>
+            </DialogHeader>
+            <Tabs defaultValue="model" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="model">Model</TabsTrigger>
+                <TabsTrigger value="assistant">Assistant</TabsTrigger>
+                <TabsTrigger value="source">Source Code</TabsTrigger>
+              </TabsList>
+              <TabsContent value="model">
+                <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                  {models.map((model) => (
+                    <div
+                      key={model.id}
+                      className={cn(
+                        "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
+                        tempSelectedModel === model.id && "bg-accent"
                       )}
-                    </Button>
-                    {sourceCode.lastUpdated && (
-                      <Badge variant="secondary" className="text-xs">
-                        Updated: {sourceCode.lastUpdated.toLocaleTimeString()}
-                      </Badge>
-                    )}
+                      onClick={() => setTempSelectedModel(model.id)}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{model.name}</span>
+                    </div>
+                  ))}
+                </ScrollArea>
+              </TabsContent>
+              <TabsContent value="assistant">
+                <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                  {assistants.map((assistant) => (
+                    <div
+                      key={assistant.id}
+                      className={cn(
+                        "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
+                        tempSelectedAssistant === assistant.id && "bg-accent"
+                      )}
+                      onClick={() => setTempSelectedAssistant(assistant.id)}
+                    >
+                      <Bot className="w-4 h-4" />
+                      <span>{assistant.name}</span>
+                    </div>
+                  ))}
+                </ScrollArea>
+              </TabsContent>
+              <TabsContent value="source">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="include-source"
+                      checked={includeSourceCode}
+                      onChange={(e) => setIncludeSourceCode(e.target.checked)}
+                    />
+                    <label htmlFor="include-source">Include Source Code</label>
                   </div>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="include-source"
-                    checked={includeSourceCode}
-                    onCheckedChange={setIncludeSourceCode}
-                    disabled={!sourceCode.available}
-                  />
-                  <Label htmlFor="include-source" className="text-sm cursor-pointer">
-                    Include source code
-                  </Label>
-                  {!sourceCode.available && (
-                    <Info className="w-4 h-4 text-muted-foreground" />
+                  <Button onClick={generateSourceCode} className="w-full">
+                    <FileCode2 className="w-4 h-4 mr-2" />
+                    Generate Source Code
+                  </Button>
+                  <Button onClick={uploadSourceCode} className="w-full">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload Source Code
+                  </Button>
+                  {sourceCode.available && (
+                    <p className="text-xs text-muted-foreground">
+                      Last updated: {sourceCode.lastUpdated?.toLocaleString()}
+                    </p>
                   )}
                 </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                {sourceCode.available
-                  ? "Include project source code in your message"
-                  : "Generate source code in settings first"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          {isAssistantTyping && (
-            <span className="text-xs text-muted-foreground animate-pulse">
-              Assistant is typing...
-            </span>
-          )}
-        </div>
-
+              </TabsContent>
+            </Tabs>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => handleDialogClose(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => handleDialogClose(true)}>Save Changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Button
           onClick={handleSendMessage}
           disabled={disabled || !message.trim()}
           size="sm"
-          className={cn("px-4", !message.trim() && "opacity-50")}
+          className={cn(!message.trim() && "opacity-50")}
         >
           <MessageSquare className="w-4 h-4 mr-2" />
           Send
