@@ -29,6 +29,20 @@ export class VSCodeEventHandler {
   private constructor(context: vscode.ExtensionContext) {
     this.context = context;
     this.accountManager = AccountManager.getInstance(context);
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      if (this.webviewView) {
+        this.updateWebviewTheme(this.webviewView);
+      }
+    });
+  }
+
+  private updateWebviewTheme(webviewView: vscode.WebviewView) {
+    const isDark =
+      vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+    webviewView.webview.postMessage({
+      type: "theme-update",
+      theme: isDark ? "dark" : "light",
+    });
   }
 
   static getInstance(context: vscode.ExtensionContext): VSCodeEventHandler {
@@ -50,7 +64,10 @@ export class VSCodeEventHandler {
 
     switch (message.type) {
       case "newConversation":
-        this.createNewConversation(message.payload.selectedAccount, message.payload.conversation);
+        this.createNewConversation(
+          message.payload.selectedAccount,
+          message.payload.conversation
+        );
         break;
       case "createAccount":
         this.createAccount(message.payload.account);
@@ -81,7 +98,6 @@ export class VSCodeEventHandler {
       case "generateSourceCodeAttachment":
         this.handleGenerateSourceCodeAttachment();
 
-
         break;
       case "updateAssistant":
         this._currentAssistant = message.payload.assistantId;
@@ -106,12 +122,19 @@ export class VSCodeEventHandler {
 
   async handleGenerateSourceCodeAttachment() {
     try {
-      console.log('[handleGenerateSourceCodeAttachment] Starting source code attachment generation');
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Starting source code attachment generation"
+      );
       this.sendMessageToWebview("generateSourceCodeAttachmentStart", {});
 
-      console.log('[handleGenerateSourceCodeAttachment] Generating documentation');
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Generating documentation"
+      );
       const generatedFile = await this.generateDocs();
-      console.log('[handleGenerateSourceCodeAttachment] Generated file:', generatedFile);
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Generated file:",
+        generatedFile
+      );
 
       const {
         path,
@@ -119,18 +142,23 @@ export class VSCodeEventHandler {
         size,
         success: generationSuccess,
       } = generatedFile;
-      console.log('[handleGenerateSourceCodeAttachment] Extracted file details:', { path, filename, size, generationSuccess });
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Extracted file details:",
+        { path, filename, size, generationSuccess }
+      );
 
-      console.log('[handleGenerateSourceCodeAttachment] Uploading file');
+      console.log("[handleGenerateSourceCodeAttachment] Uploading file");
       const uploadResult = await this.handleUpload(path);
-      console.log('[handleGenerateSourceCodeAttachment] Upload result:', uploadResult);
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Upload result:",
+        uploadResult
+      );
 
-      const {
-        fileId,
-        success: uploadSuccess,
-        uploadTime,
-      } = uploadResult;
-      console.log('[handleGenerateSourceCodeAttachment] Extracted upload details:', { fileId, uploadSuccess, uploadTime });
+      const { fileId, success: uploadSuccess, uploadTime } = uploadResult;
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Extracted upload details:",
+        { fileId, uploadSuccess, uploadTime }
+      );
 
       this.sendMessageToWebview("generateSourceCodeAttachmentSuccess", {
         fileId,
@@ -139,11 +167,14 @@ export class VSCodeEventHandler {
         uploadDate: uploadTime,
         uploadSuccess,
       });
-      console.log('[handleGenerateSourceCodeAttachment] Successfully sent attachment to webview');
+      console.log(
+        "[handleGenerateSourceCodeAttachment] Successfully sent attachment to webview"
+      );
     } catch (error) {
-      console.error('[handleGenerateSourceCodeAttachment] Error:', error);
+      console.error("[handleGenerateSourceCodeAttachment] Error:", error);
       this.sendMessageToWebview("generateSourceCodeAttachmentError", {
-        message: error instanceof Error ? error.message : "An unknown error occurred"
+        message:
+          error instanceof Error ? error.message : "An unknown error occurred",
       });
     }
   }
@@ -226,7 +257,9 @@ export class VSCodeEventHandler {
     }
 
     try {
-      console.log(`[Chat] Getting conversation for ID: ${payload.conversationId}`);
+      console.log(
+        `[Chat] Getting conversation for ID: ${payload.conversationId}`
+      );
       let conversation = await this.getConversation(
         payload.accountId,
         payload.conversationId
@@ -272,17 +305,28 @@ export class VSCodeEventHandler {
         {
           role: "user",
           content: payload.message,
-          ...(payload.attachDoc && this._generatedDocPath && {
-            attachments: [{ file_id: this._uploadedFileId, tools: [{ type: "file_search" }] }],
-          })
+          ...(payload.attachDoc &&
+            this._generatedDocPath && {
+              attachments: [
+                {
+                  file_id: this._uploadedFileId,
+                  tools: [{ type: "file_search" }],
+                },
+              ],
+            }),
         }
       );
 
-      console.log(`[Chat] Starting thread run with assistant: ${payload.assistant}`);
-      const run = await this.openaiClient.beta.threads.runs.create(conversation.threadId, {
-        assistant_id: payload.assistant,
-        model: payload.model,
-      });
+      console.log(
+        `[Chat] Starting thread run with assistant: ${payload.assistant}`
+      );
+      const run = await this.openaiClient.beta.threads.runs.create(
+        conversation.threadId,
+        {
+          assistant_id: payload.assistant,
+          model: payload.model,
+        }
+      );
 
       console.log(`[Chat] Waiting for run completion. Run ID: ${run.id}`);
       let response = await this.openaiClient.beta.threads.runs.retrieve(
@@ -333,12 +377,15 @@ export class VSCodeEventHandler {
     }
   }
 
-  private async generateDocs(): Promise<{
-    path: string,
-    filename: string,
-    size: number,
-    success: boolean,
-  } | undefined> {
+  private async generateDocs(): Promise<
+    | {
+        path: string;
+        filename: string;
+        size: number;
+        success: boolean;
+      }
+    | undefined
+  > {
     console.log("[EventHandler] Starting documentation generation");
     console.log("[EventHandler] Checking workspace folders");
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -374,12 +421,12 @@ export class VSCodeEventHandler {
       console.log("[EventHandler] Getting file stats");
       const fileStats = await fsProm.stat(markdownUri.fsPath);
       console.log("[EventHandler] Sending success message to webview");
-      return ({
+      return {
         path: markdownUri.fsPath,
         filename: markdownFileName,
         size: fileStats.size,
         success: true,
-      });
+      };
     } catch (error) {
       console.error("[EventHandler] Error generating documentation:", error);
       this.sendMessageToWebview("error", {
@@ -390,8 +437,7 @@ export class VSCodeEventHandler {
 
   private async generateMarkdownContent(rootPath: string): Promise<string> {
     // Enhanced Introduction and Table of Contents
-    let markdown =
-      `# Project Source Code Documentation
+    let markdown = `# Project Source Code Documentation
 
 ## Introduction
 
@@ -435,7 +481,9 @@ Below is the directory structure of the project source code. Each file section t
 
       for (const [name, type] of entries) {
         const relativePath = path.relative(rootPath, path.join(dir, name));
-        if (ig.ignores(relativePath)) { continue; }
+        if (ig.ignores(relativePath)) {
+          continue;
+        }
 
         const fullPath = path.join(dir, name);
         if (type === vscode.FileType.Directory) {
@@ -488,7 +536,9 @@ ${content.toString()}
       );
       for (const [name, type] of entries) {
         const relativePath = path.relative(rootPath, path.join(dir, name));
-        if (ig.ignores(relativePath)) { continue; }
+        if (ig.ignores(relativePath)) {
+          continue;
+        }
 
         const fullPath = path.join(dir, name);
         if (type === vscode.FileType.Directory) {
@@ -503,10 +553,15 @@ ${content.toString()}
     return markdown;
   }
 
-  private async getConversation(accountId: string, conversationId: string): Promise<Conversation> {
+  private async getConversation(
+    accountId: string,
+    conversationId: string
+  ): Promise<Conversation> {
     const accounts = this.accountManager.getAccounts();
     const account = accounts.find((acc) => acc.id === accountId);
-    let conversation = account?.conversations?.find((conv) => conv.id === conversationId);
+    let conversation = account?.conversations?.find(
+      (conv) => conv.id === conversationId
+    );
 
     if (!conversation) {
       conversation = {
@@ -515,7 +570,7 @@ ${content.toString()}
         date: new Date().toISOString().split("T")[0],
         messages: [],
         lastMessage: "",
-        threadId: null
+        threadId: null,
       };
     }
 
@@ -524,7 +579,9 @@ ${content.toString()}
       try {
         await this.openaiClient.beta.threads.retrieve(conversation.threadId);
       } catch (error) {
-        console.log(`[Chat] Thread ${conversation.threadId} not found, creating new thread`);
+        console.log(
+          `[Chat] Thread ${conversation.threadId} not found, creating new thread`
+        );
         const newThread = await this.openaiClient.beta.threads.create();
         conversation.threadId = newThread.id;
         await this.updateConversation(accountId, conversation);
@@ -623,12 +680,15 @@ ${content.toString()}
     }
   }
 
-  private async handleUpload(filePath: string): Promise<{
-    fileName: string,
-    fileId: string,
-    success: boolean,
-    uploadTime: Date,
-  } | undefined> {
+  private async handleUpload(filePath: string): Promise<
+    | {
+        fileName: string;
+        fileId: string;
+        success: boolean;
+        uploadTime: Date;
+      }
+    | undefined
+  > {
     if (!filePath) {
       this.sendMessageToWebview("error", {
         message: "No documentation file generated yet",
@@ -685,16 +745,19 @@ ${content.toString()}
     this.disposables.forEach((disposable) => disposable.dispose());
   }
 
-  private async uploadFileOpenAI(filePath: string): Promise<{
-    fileName: string,
-    fileId: string,
-    success: boolean,
-    uploadTime: Date,
-  } | undefined> {
+  private async uploadFileOpenAI(filePath: string): Promise<
+    | {
+        fileName: string;
+        fileId: string;
+        success: boolean;
+        uploadTime: Date;
+      }
+    | undefined
+  > {
     if (!this.openaiClient) {
       console.log("[EventHandler] OpenAI client not initialized");
       this.sendMessageToWebview("error", {
-        message: "Please ensure your API key is set"
+        message: "Please ensure your API key is set",
       });
       return;
     }
@@ -712,34 +775,34 @@ ${content.toString()}
 
       const uploadedFile = await this.openaiClient.files.create({
         file,
-        purpose: "assistants"
+        purpose: "assistants",
       });
 
       const uploadTime = new Date();
 
       this._uploadedFileId = uploadedFile.id;
 
-      console.log(`[EventHandler] File uploaded successfully with ID: ${uploadedFile.id}`);
+      console.log(
+        `[EventHandler] File uploaded successfully with ID: ${uploadedFile.id}`
+      );
 
-      return ({
+      return {
         fileName,
         fileId: uploadedFile.id,
         success: true,
-        uploadTime
-      });
+        uploadTime,
+      };
       /* this.sendMessageToWebview("uploadComplete", {
           fileName,
           fileId: uploadedFile.id,
           success: true,
           uploadTime
       }); */
-
     } catch (error) {
       console.error("[EventHandler] Error uploading file:", error);
       this.sendMessageToWebview("error", {
-        message: "Error uploading file: " + (error as Error).message
+        message: "Error uploading file: " + (error as Error).message,
       });
     }
   }
-
 }

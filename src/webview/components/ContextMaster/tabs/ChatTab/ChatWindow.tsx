@@ -1,14 +1,14 @@
 import React, { useRef, useEffect, useState } from "react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Message } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MessageSquare, Copy, Check, ChevronDown } from 'lucide-react';
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
+import { useTheme } from "@/ThemeProvider";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -35,6 +35,8 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+
+  const { theme } = useTheme();
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -147,7 +149,7 @@ export function ChatWindow({
                                   PreTag="div"
                                   children={String(children).replace(/\n$/, "")}
                                   language={match[1]}
-                                  style={oneLight}
+                                  style={theme === 'dark' ? oneDark : oneLight}
                                 />
                               </div>
                             ) : (
@@ -161,7 +163,7 @@ export function ChatWindow({
                         {processMessageContent(message.content)}
                       </Markdown>
                     </div>
-                    <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+                    <div className="flex justify-between items-center mt-2 text-xs">
                       <span>{new Date(message.timestamp).toLocaleString()}</span>
                       <span className="font-semibold">
                         {message.sender === "user" ? "You" : "Assistant"}
