@@ -317,57 +317,67 @@ export class VSCodeEventHandler {
         }
       );
 
-      console.log(
-        `[Chat] Starting thread run with assistant: ${payload.assistant}`
-      );
-      const run = await this.openaiClient.beta.threads.runs.create(
-        conversation.threadId,
-        {
-          assistant_id: payload.assistant,
-          model: payload.model,
-        }
-      );
-
-      console.log(`[Chat] Waiting for run completion. Run ID: ${run.id}`);
-      let response = await this.openaiClient.beta.threads.runs.retrieve(
-        conversation.threadId,
-        run.id
-      );
-      while (
-        response.status === "in_progress" ||
-        response.status === "queued"
-      ) {
-        console.log(`[Chat] Run status: ${response.status}`);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        response = await this.openaiClient.beta.threads.runs.retrieve(
-          conversation.threadId,
-          run.id
-        );
-      }
-      console.log(`[Chat] Run completed with status: ${response.status}`);
-
-      console.log(`[Chat] Retrieving thread messages`);
-      const messages = await this.openaiClient.beta.threads.messages.list(
-        conversation.threadId
-      );
-
-      console.log(`[Chat] Creating assistant message`);
+      // Create assistant message placeholder
       const assistantMessage: Message = {
-        id: messages.data[0].id,
-        content: messages.data[0].content[0].text.value,
+        id: crypto.randomUUID(),
+        content: "",
         sender: "assistant",
         timestamp: new Date().toISOString(),
       };
-
       conversation.messages = [...conversation.messages, assistantMessage];
-      conversation.lastMessage = assistantMessage.content;
 
-      console.log(`[Chat] Updating conversation in storage`);
-      await this.updateConversation(payload.accountId, conversation);
+      console.log(
+        `[Chat] Starting thread run with assistant: ${payload.assistant}`
+      );
+      // Start streaming run
+      const run = this.openaiClient.beta.threads.runs
+        .stream(conversation.threadId, {
+          assistant_id: payload.assistant,
+          model: payload.model,
+        })
+        .on("textCreated", () => {
+          this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
+        })
+        .on("textDelta", (delta, snapshot) => {
+          assistantMessage.content += delta.value;
+          // Send both conversation update and message update
+          this.sendMessageToWebview("updateConversation", { conversation });
+          this.sendMessageToWebview("updateMessage", {
+            messageId: assistantMessage.id,
+            content: assistantMessage.content,
+          });
+        })
+        .on("toolCallCreated", (toolCall) => {
+          this.sendMessageToWebview("toolCall", { type: toolCall.type });
+        })
+        .on("toolCallDelta", (delta, snapshot) => {
+          if (delta.type === "code_interpreter") {
+            if (delta.code_interpreter.input) {
+              assistantMessage.content += `\n\`\`\`\n${delta.code_interpreter.input}\n\`\`\`\n`;
+            }
+            if (delta.code_interpreter.outputs) {
+              delta.code_interpreter.outputs.forEach((output) => {
+                if (output.type === "logs") {
+                  assistantMessage.content += `\nOutput:\n\`\`\`\n${output.logs}\n\`\`\`\n`;
+                }
+              });
+            }
+            this.sendMessageToWebview("updateMessage", {
+              messageId: assistantMessage.id,
+              content: assistantMessage.content,
+            });
+          }
+        })
+        .on("end", async () => {
+          this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
+          await this.updateConversation(payload.accountId, conversation);
+        });
+
+      /*await run.start();
 
       console.log(`[Chat] Sending final updates to webview`);
       this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
-      this.sendMessageToWebview("updateConversation", { conversation });
+      this.sendMessageToWebview("updateConversation", { conversation });*/
     } catch (error) {
       console.error("[Chat] Error processing chat message:", error);
       this.sendMessageToWebview("error", {

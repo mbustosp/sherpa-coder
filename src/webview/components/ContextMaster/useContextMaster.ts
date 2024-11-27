@@ -91,6 +91,26 @@ export function useContextMaster() {
           });
           setError("Failed to generate docs");
           break;
+        case "updateMessage":
+          console.debug(
+            "Updating message:",
+            message.messageId,
+            message.content
+          );
+          setCurrentConversation((prev) => {
+            if (!prev) return prev;
+            const updatedMessages = prev.messages.map((msg) =>
+              msg.id === message.messageId
+                ? { ...msg, content: message.content }
+                : msg
+            );
+            return {
+              ...prev,
+              messages: updatedMessages,
+              lastMessage: message.content,
+            };
+          });
+          break;
       }
     };
     window.addEventListener("message", messageHandler);
@@ -160,7 +180,10 @@ export function useContextMaster() {
       )
     );
     setCurrentConversation(newConversation);
-    sendMessage("newConversation", { selectedAccount, conversation: newConversation });
+    sendMessage("newConversation", {
+      selectedAccount,
+      conversation: newConversation,
+    });
   };
 
   const handleDeleteConversation = (conversationId: string) => {
