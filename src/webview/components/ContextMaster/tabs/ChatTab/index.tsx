@@ -24,6 +24,7 @@ export function ChatTab() {
     setSelectedModel,
     generateSourceCodeAttachment,
     sourceCode,
+    handleCancelRun
   } = useContextMasterContext();
 
   return (
@@ -42,6 +43,7 @@ export function ChatTab() {
             messages={currentConversation?.messages || []}
             error={error || undefined}
             isAssistantTyping={isAssistantTyping}
+            handleCancelRun={handleCancelRun}
           />
           <MessageInput
             sendMessage={handleSendChatMessage}

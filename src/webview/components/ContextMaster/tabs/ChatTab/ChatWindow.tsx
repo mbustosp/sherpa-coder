@@ -1,13 +1,31 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import { Message } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MessageSquare, Copy, Check, ChevronDown } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  MessageSquare,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneLight, oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  oneLight,
+  oneDark,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
+import remarkGfm from 'remark-gfm'
 import { useTheme } from "@/ThemeProvider";
 
 interface ChatWindowProps {
@@ -15,6 +33,7 @@ interface ChatWindowProps {
   error?: string;
   isAssistantTyping?: boolean;
   autoScroll?: boolean;
+  handleCancelRun: () => void;
 }
 
 const processMessageContent = (content: string): string => {
@@ -32,11 +51,44 @@ export function ChatWindow({
   error,
   isAssistantTyping,
   autoScroll = true,
+  handleCancelRun,
 }: ChatWindowProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [windowSize] = useState(5);
+  const [currentWindowStart, setCurrentWindowStart] = useState(
+    Math.max(0, messages.length - windowSize)
+  );
 
   const { theme } = useTheme();
+
+  // Compute the window of messages to display
+  const visibleMessages = useMemo(() => {
+    return messages.slice(currentWindowStart, currentWindowStart + windowSize);
+  }, [messages, currentWindowStart, windowSize]);
+
+  const canMoveNext =
+    currentWindowStart + windowSize < messages.length && !isAssistantTyping;
+  const canMovePrev = currentWindowStart > 0 && !isAssistantTyping;
+
+  const moveNext = () => {
+    if (canMoveNext) {
+      setCurrentWindowStart((prev) => prev + 1);
+    }
+  };
+
+  const movePrev = () => {
+    if (canMovePrev) {
+      setCurrentWindowStart((prev) => Math.max(0, prev - 1));
+    }
+  };
+
+  // Reset to last window when messages change and assistant is typing
+  useEffect(() => {
+    if (isAssistantTyping) {
+      setCurrentWindowStart(Math.max(0, messages.length - windowSize));
+    }
+  }, [messages, isAssistantTyping, windowSize]);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -57,6 +109,48 @@ export function ChatWindow({
 
   return (
     <div className="border rounded-md py-2 flex flex-col flex-auto overflow-y-hidden">
+      {messages.length > windowSize && (
+        <div className="flex justify-between items-center px-4 mb-2">
+          <Button
+            onClick={() => setCurrentWindowStart(0)}
+            disabled={!canMovePrev}
+            variant="outline"
+            size="icon"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={movePrev}
+            disabled={!canMovePrev}
+            variant="outline"
+            size="icon"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {currentWindowStart + 1} -{" "}
+            {currentWindowStart + visibleMessages.length} of {messages.length}
+          </span>
+          <Button
+            onClick={moveNext}
+            disabled={!canMoveNext}
+            variant="outline"
+            size="icon"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={() =>
+              setCurrentWindowStart(Math.max(0, messages.length - windowSize))
+            }
+            disabled={!canMoveNext}
+            variant="outline"
+            size="icon"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
       <div className="flex-grow overflow-y-auto mb-4">
         <div className="space-y-4">
           {messages.length === 0 ? (
@@ -76,21 +170,25 @@ export function ChatWindow({
               </p>
             </div>
           ) : (
-            messages.map((message) => (
+            visibleMessages.map((message) => (
               <div
                 key={message.id}
                 className={`flex w-full ${
                   message.sender === "user" ? "justify-end" : "justify-start"
                 }`}
               >
-                <div className={`w-full max-w-3xl ${
-                  message.sender === "user" ? "" : ""
-                } relative`}>
-                  <div className={`rounded-lg p-3 ${
-                    message.sender === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}>
+                <div
+                  className={`w-full max-w-3xl ${
+                    message.sender === "user" ? "" : ""
+                  } relative`}
+                >
+                  <div
+                    className={`rounded-lg p-3 ${
+                      message.sender === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
                     <div className="relative">
                       <TooltipProvider>
                         <Tooltip>
@@ -99,7 +197,9 @@ export function ChatWindow({
                               variant="ghost"
                               size="icon"
                               className="absolute top-0 right-0 p-1 h-6 w-6"
-                              onClick={() => handleCopyMessage(message.id, message.content)}
+                              onClick={() =>
+                                handleCopyMessage(message.id, message.content)
+                              }
                             >
                               {copiedMessageId === message.id ? (
                                 <Check className="h-4 w-4" />
@@ -109,18 +209,23 @@ export function ChatWindow({
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {copiedMessageId === message.id ? "Copied!" : "Copy message"}
+                            {copiedMessageId === message.id
+                              ? "Copied!"
+                              : "Copy message"}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                       <Markdown
                         className="text-sm [&>p]:py-2 [&>.math-display]:text-center pr-6"
-                        remarkPlugins={[remarkMath]}
+                        remarkPlugins={[remarkMath, remarkGfm]}
                         rehypePlugins={[rehypeKatex]}
                         components={{
                           code(props) {
-                            const { children, className, node, ...rest } = props;
-                            const match = /language-(\w+)/.exec(className || "");
+                            const { children, className, node, ...rest } =
+                              props;
+                            const match = /language-(\w+)/.exec(
+                              className || ""
+                            );
                             return match ? (
                               <div className="relative">
                                 <TooltipProvider>
@@ -130,7 +235,12 @@ export function ChatWindow({
                                         variant="ghost"
                                         size="icon"
                                         className="absolute top-2 right-2 z-10"
-                                        onClick={() => handleCopyMessage(message.id, String(children))}
+                                        onClick={() =>
+                                          handleCopyMessage(
+                                            message.id,
+                                            String(children)
+                                          )
+                                        }
                                       >
                                         {copiedMessageId === message.id ? (
                                           <Check className="h-4 w-4" />
@@ -140,7 +250,9 @@ export function ChatWindow({
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      {copiedMessageId === message.id ? "Copied!" : "Copy code"}
+                                      {copiedMessageId === message.id
+                                        ? "Copied!"
+                                        : "Copy code"}
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -149,7 +261,7 @@ export function ChatWindow({
                                   PreTag="div"
                                   children={String(children).replace(/\n$/, "")}
                                   language={match[1]}
-                                  style={theme === 'dark' ? oneDark : oneLight}
+                                  style={theme === "dark" ? oneDark : oneLight}
                                 />
                               </div>
                             ) : (
@@ -157,14 +269,16 @@ export function ChatWindow({
                                 {children}
                               </code>
                             );
-                          }
+                          },
                         }}
                       >
                         {processMessageContent(message.content)}
                       </Markdown>
                     </div>
                     <div className="flex justify-between items-center mt-2 text-xs">
-                      <span>{new Date(message.timestamp).toLocaleString()}</span>
+                      <span>
+                        {new Date(message.timestamp).toLocaleString()}
+                      </span>
                       <span className="font-semibold">
                         {message.sender === "user" ? "You" : "Assistant"}
                       </span>
@@ -179,7 +293,12 @@ export function ChatWindow({
         {isAssistantTyping && (
           <div className="text-muted-foreground mt-2">
             Assistant is typing...
-            <button className="ml-2 text-primary">Cancel</button>
+            <button
+              className="ml-2 text-primary"
+              onClick={() => handleCancelRun()}
+            >
+              Cancel
+            </button>
           </div>
         )}
         <div ref={chatEndRef} />
@@ -197,9 +316,7 @@ export function ChatWindow({
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              Scroll to Bottom
-            </TooltipContent>
+            <TooltipContent>Scroll to Bottom</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>

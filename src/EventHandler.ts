@@ -16,6 +16,7 @@ export class VSCodeEventHandler {
   private openaiClient: OpenAI | null = null;
   private _currentAssistant: string | undefined;
   private _currentModel: string | undefined;
+  private _currentRun;
   private _generatedDocPath: string | undefined;
   private _uploadedFileId: string | undefined;
 
@@ -115,6 +116,9 @@ export class VSCodeEventHandler {
         console.log(`[EventHandler] Removing extension data`);
         this.accountManager.deleteAllAccounts();
         console.log(`[EventHandler] Extension data removed`);
+      case "cancelRun":
+        await this.cancelCurrentRun();
+        break;
       default:
         console.log(`Unhandled message type: ${message.type}`, message.payload);
     }
@@ -239,6 +243,13 @@ export class VSCodeEventHandler {
     }
   }
 
+  private async cancelCurrentRun() {
+    if (this._currentRun && this.openaiClient) {
+      console.log("Cancelling current run!")
+      this._currentRun.controller.abort()
+    }
+  }
+
   private async handleChatMessage(payload: {
     accountId: string;
     conversationId: number;
@@ -339,9 +350,12 @@ export class VSCodeEventHandler {
           this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
         .on("textDelta", (delta, snapshot) => {
+          console.log(
+            `[Chat] Received delta: ${delta.value}`
+          );
           assistantMessage.content += delta.value;
           // Send both conversation update and message update
-          this.sendMessageToWebview("updateConversation", { conversation });
+          //this.sendMessageToWebview("updateConversation", { conversation });
           this.sendMessageToWebview("updateMessage", {
             messageId: assistantMessage.id,
             content: assistantMessage.content,
@@ -373,11 +387,7 @@ export class VSCodeEventHandler {
           await this.updateConversation(payload.accountId, conversation);
         });
 
-      /*await run.start();
-
-      console.log(`[Chat] Sending final updates to webview`);
-      this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
-      this.sendMessageToWebview("updateConversation", { conversation });*/
+      this._currentRun = run;
     } catch (error) {
       console.error("[Chat] Error processing chat message:", error);
       this.sendMessageToWebview("error", {
@@ -601,45 +611,26 @@ ${content.toString()}
     return conversation;
   }
 
-  private async updateConversation(
-    accountId: string,
-    conversation: Conversation
-  ): Promise<void> {
-    console.log(
-      `[Conversation Handler] Updating conversation for account ID: ${accountId}`,
-      conversation
-    );
-    const accounts = this.accountManager.getAccounts();
-    const accountIndex = accounts.findIndex((acc) => acc.id === accountId);
+  private async updateConversation(accountId: string, conversation: Conversation): Promise<void> {
+    // Use Map for O(1) lookup instead of find
+    const accountsMap = new Map(this.accountManager.getAccounts().map(acc => [acc.id, acc]));
+    const account = accountsMap.get(accountId);
 
-    if (accountIndex !== -1) {
-      console.log(
-        `[Conversation Handler] Found account at index: ${accountIndex}`
-      );
-      const conversationIndex = accounts[accountIndex].conversations.findIndex(
-        (conv) => conv.id === conversation.id
-      );
-
-      if (conversationIndex !== -1) {
-        console.log(
-          `[Conversation Handler] Updating existing conversation at index: ${conversationIndex}`
-        );
-        accounts[accountIndex].conversations[conversationIndex] = conversation;
-      } else {
-        console.log(
-          `[Conversation Handler] Adding new conversation to account`
-        );
-        accounts[accountIndex].conversations.push(conversation);
-      }
-
-      console.log(`[Conversation Handler] Storing updated account`);
-      await this.accountManager.storeAccount(accounts[accountIndex]);
-    } else {
-      console.log(
-        `[Conversation Handler] Account not found with ID: ${accountId}`
-      );
+    if (account) {
+        // Update conversations efficiently using Map
+        const conversationsMap = new Map(account.conversations.map(conv => [conv.id, conv]));
+        conversationsMap.set(conversation.id, conversation);
+        
+        account.conversations = Array.from(conversationsMap.values());
+        await this.accountManager.storeAccount(account);
+        
+        // Batch update notifications
+        this.sendMessageToWebview("updateConversation", { 
+            conversation,
+            accountId 
+        });
     }
-  }
+}
 
   private async deleteConversation(
     accountId: string,

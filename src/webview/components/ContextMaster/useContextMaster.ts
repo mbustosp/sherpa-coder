@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Account, Conversation } from "../../types";
 import { sendMessage } from "@/vscode";
+import ReactDOM from "react-dom";
 
 export function useContextMaster() {
   const [accounts, setAccounts] = React.useState<Account[]>([]);
@@ -25,8 +26,26 @@ export function useContextMaster() {
     loading: boolean;
   }>({ available: false, lastUpdated: null, loading: false });
 
-  const selectedAccount =
-    accounts.find((account) => account.id === selectedAccountId) || null;
+  // Add memoization for frequently accessed data
+  const selectedAccount = React.useMemo(
+    () => accounts.find((account) => account.id === selectedAccountId),
+    [accounts, selectedAccountId]
+  );
+
+  // Debounce function
+  function debounce(func: Function, wait: number) {
+    let timeout: NodeJS.Timeout;
+    return function executedFunction(...args: any[]) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+
 
   React.useEffect(() => {
     sendMessage("getAccounts", {});
@@ -46,8 +65,7 @@ export function useContextMaster() {
           setIsLoading(false);
           break;
         case "updateConversation":
-          console.debug("Updating conversation:", message.conversation);
-          setCurrentConversation(message.conversation);
+          updateConversation(message.conversation);
           break;
         case "updateLists":
           console.log("Updating lists:", {
@@ -92,22 +110,40 @@ export function useContextMaster() {
           setError("Failed to generate docs");
           break;
         case "updateMessage":
-          console.debug(
-            "Updating message:",
-            message.messageId,
-            message.content
-          );
-          setCurrentConversation((prev) => {
+          setCurrentConversation(prev => {
             if (!prev) return prev;
-            const updatedMessages = prev.messages.map((msg) =>
-              msg.id === message.messageId
+            
+            // Check if the message exists
+            const existingMessageIndex = prev.messages.findIndex(
+              msg => msg.id === message.messageId
+            );
+        
+            // If message doesn't exist, append it
+            if (existingMessageIndex === -1) {
+              return {
+                ...prev,
+                messages: [
+                  ...prev.messages, 
+                  {
+                    id: message.messageId,
+                    content: message.content,
+                    sender: 'assistant', // Assuming it's an assistant message
+                    timestamp: new Date().toISOString()
+                  }
+                ]
+              };
+            }
+        
+            // If message exists, update its content
+            const updatedMessages = prev.messages.map(msg => 
+              msg.id === message.messageId 
                 ? { ...msg, content: message.content }
                 : msg
             );
+        
             return {
               ...prev,
-              messages: updatedMessages,
-              lastMessage: message.content,
+              messages: updatedMessages
             };
           });
           break;
@@ -150,6 +186,10 @@ export function useContextMaster() {
     }
   }, [selectedModel]);
 
+  const handleCancelRun = () => {
+    sendMessage("cancelRun", {});
+  };
+
   const isClientInitialized =
     models?.length && selectedAccountId !== null && !isLoading;
 
@@ -185,6 +225,28 @@ export function useContextMaster() {
       conversation: newConversation,
     });
   };
+
+  // Batch conversation updates
+  const updateConversation = React.useCallback(
+    (conversation: Conversation) => {
+      ReactDOM.unstable_batchedUpdates(() => {
+        setAccounts((prev) =>
+          prev.map((account) =>
+            account.id === selectedAccountId
+              ? {
+                  ...account,
+                  conversations: account.conversations.map((conv) =>
+                    conv.id === conversation.id ? conversation : conv
+                  ),
+                }
+              : account
+          )
+        );
+        setCurrentConversation(conversation);
+      });
+    },
+    [selectedAccountId]
+  );
 
   const handleDeleteConversation = (conversationId: string) => {
     if (!selectedAccount) return;
@@ -311,12 +373,13 @@ export function useContextMaster() {
     handleDeleteAccount,
     handleDeleteConversation,
     onSelectConversation,
-    setCurrentConversation: setCurrentConversation,
+    setCurrentConversation,
     sendMessageToExtension: sendMessage,
     handleSendChatMessage,
     dismissError,
     handleRemoveExtensionData,
     sourceCode,
     generateSourceCodeAttachment,
+    handleCancelRun,
   };
 }
