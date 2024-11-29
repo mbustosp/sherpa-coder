@@ -67,6 +67,13 @@ export function ChatWindow({
     return messages.slice(currentWindowStart, currentWindowStart + windowSize);
   }, [messages, currentWindowStart, windowSize]);
 
+  // Reset to last window when messages change and assistant is typing
+  useEffect(() => {
+    if (isAssistantTyping) {
+      setCurrentWindowStart(Math.max(0, messages.length - windowSize));
+    }
+  }, [messages, isAssistantTyping, windowSize]);
+
   const canMoveNext =
     currentWindowStart + windowSize < messages.length && !isAssistantTyping;
   const canMovePrev = currentWindowStart > 0 && !isAssistantTyping;
@@ -96,9 +103,15 @@ export function ChatWindow({
 
   useEffect(() => {
     if (autoScroll) {
-      scrollToBottom();
+      // Get the last message if it exists
+      const lastMessage = messages[messages.length - 1];
+      
+      // Scroll on any message content change or new messages
+      if (lastMessage) {
+        scrollToBottom();
+      }
     }
-  }, [messages, autoScroll]);
+  }, [messages, autoScroll, messages[messages.length - 1]?.content]);
 
   const handleCopyMessage = (messageId: string, content: string) => {
     navigator.clipboard.writeText(content).then(() => {

@@ -347,15 +347,11 @@ export class VSCodeEventHandler {
           model: payload.model,
         })
         .on("textCreated", () => {
-          this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
+          this.sendMessageToWebview("updateTypingStatus", { isTyping: true })
         })
         .on("textDelta", (delta, snapshot) => {
-          console.log(
-            `[Chat] Received delta: ${delta.value}`
-          );
+          console.log(`[Chat] Received delta: ${delta.value}`);
           assistantMessage.content += delta.value;
-          // Send both conversation update and message update
-          //this.sendMessageToWebview("updateConversation", { conversation });
           this.sendMessageToWebview("updateMessage", {
             messageId: assistantMessage.id,
             content: assistantMessage.content,

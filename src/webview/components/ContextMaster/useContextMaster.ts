@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Account, Conversation } from "../../types";
+import { Account, Conversation, Message } from "../../types";
 import { sendMessage } from "@/vscode";
 import ReactDOM from "react-dom";
 
@@ -25,6 +25,41 @@ export function useContextMaster() {
     lastUpdated: Date | null;
     loading: boolean;
   }>({ available: false, lastUpdated: null, loading: false });
+
+  const [currentMessageWindow, setCurrentMessageWindow] = React.useState<Message[]>([]);
+  const windowSize = 5;
+
+  // Update the message window when receiving updates
+  const handleMessageUpdate = (messageId: string, content: string) => {
+    setCurrentMessageWindow(prev => {
+      const messageIndex = prev.findIndex(msg => msg.id === messageId);
+      
+      if (messageIndex === -1 && prev.length < windowSize) {
+        // Add new message if window isn't full
+        const newMessage = {
+          id: messageId,
+          content,
+          sender: 'assistant',
+          timestamp: new Date().toISOString()
+        };
+        return [...prev, newMessage];
+      } else if (messageIndex === -1) {
+        // Shift window to show new message
+        const newMessage = {
+          id: messageId,
+          content,
+          sender: 'assistant',
+          timestamp: new Date().toISOString()
+        };
+        return [...prev.slice(1), newMessage];
+      }
+      
+      // Update existing message
+      return prev.map(msg =>
+        msg.id === messageId ? { ...msg, content } : msg
+      );
+    });
+  };
 
   // Add memoization for frequently accessed data
   const selectedAccount = React.useMemo(
@@ -127,7 +162,7 @@ export function useContextMaster() {
                   {
                     id: message.messageId,
                     content: message.content,
-                    sender: 'assistant', // Assuming it's an assistant message
+                    sender: 'assistant',
                     timestamp: new Date().toISOString()
                   }
                 ]
@@ -321,6 +356,9 @@ export function useContextMaster() {
     );
     if (conversation) {
       setCurrentConversation(conversation);
+      // Initialize the message window with the last N messages
+      const lastMessages = conversation.messages.slice(-5);
+      setCurrentMessageWindow(lastMessages);
       sendMessage("selectConversation", { conversationId });
     }
   };
