@@ -17,8 +17,6 @@ export class VSCodeEventHandler {
   private _currentAssistant: string | undefined;
   private _currentModel: string | undefined;
   private _currentRun;
-  private _generatedDocPath: string | undefined;
-  private _uploadedFileId: string | undefined;
 
   private async initializeWithStoredAccount(): Promise<void> {
     const selectedAccountId = this.accountManager.getSelectedAccount();
@@ -35,6 +33,61 @@ export class VSCodeEventHandler {
         this.updateWebviewTheme(this.webviewView);
       }
     });
+  }
+
+  private async getWorkspaceFiles(): Promise<string[]> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) return [];
+
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    const files: string[] = [];
+
+    const ig = ignore().add([
+      ".sherpa-files",
+      "package-lock.json",
+      "yarn.lock",
+      ".git",
+      "node_modules",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.gif",
+      "*.pdf",
+      "*.exe",
+      "*.dll",
+      "*.bin",
+      "*.zip",
+      "*.tar",
+      "*.gz",
+    ]);
+
+    const processDirectory = async (dir: string) => {
+      const entries = await vscode.workspace.fs.readDirectory(
+        vscode.Uri.file(dir)
+      );
+
+      for (const [name, type] of entries) {
+        const fullPath = path.join(dir, name);
+        const relativePath = path.relative(rootPath, fullPath);
+
+        if (ig.ignores(relativePath)) continue;
+
+        if (type === vscode.FileType.Directory) {
+          await processDirectory(fullPath);
+        } else {
+          files.push(relativePath);
+        }
+      }
+    };
+
+    await processDirectory(rootPath);
+    return files;
+  }
+
+  // Add method to send files to webview
+  private async sendWorkspaceFilesToWebview() {
+    const files = await this.getWorkspaceFiles();
+    this.sendMessageToWebview("updateWorkspaceFiles", { files });
   }
 
   private updateWebviewTheme(webviewView: vscode.WebviewView) {
@@ -96,10 +149,6 @@ export class VSCodeEventHandler {
       case "sendChatMessage":
         this.handleChatMessage(message.payload);
         break;
-      case "generateSourceCodeAttachment":
-        this.handleGenerateSourceCodeAttachment();
-
-        break;
       case "updateAssistant":
         this._currentAssistant = message.payload.assistantId;
         console.log(
@@ -119,69 +168,15 @@ export class VSCodeEventHandler {
       case "cancelRun":
         await this.cancelCurrentRun();
         break;
+      case "getWorkspaceFiles":
+        const files = await this.getWorkspaceFiles();
+        this.sendMessageToWebview("updateWorkspaceFiles", { files });
+        break;
       default:
         console.log(`Unhandled message type: ${message.type}`, message.payload);
     }
   }
 
-  async handleGenerateSourceCodeAttachment() {
-    try {
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Starting source code attachment generation"
-      );
-      this.sendMessageToWebview("generateSourceCodeAttachmentStart", {});
-
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Generating documentation"
-      );
-      const generatedFile = await this.generateDocs();
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Generated file:",
-        generatedFile
-      );
-
-      const {
-        path,
-        filename,
-        size,
-        success: generationSuccess,
-      } = generatedFile;
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Extracted file details:",
-        { path, filename, size, generationSuccess }
-      );
-
-      console.log("[handleGenerateSourceCodeAttachment] Uploading file");
-      const uploadResult = await this.handleUpload(path);
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Upload result:",
-        uploadResult
-      );
-
-      const { fileId, success: uploadSuccess, uploadTime } = uploadResult;
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Extracted upload details:",
-        { fileId, uploadSuccess, uploadTime }
-      );
-
-      this.sendMessageToWebview("generateSourceCodeAttachmentSuccess", {
-        fileId,
-        filename,
-        size,
-        uploadDate: uploadTime,
-        uploadSuccess,
-      });
-      console.log(
-        "[handleGenerateSourceCodeAttachment] Successfully sent attachment to webview"
-      );
-    } catch (error) {
-      console.error("[handleGenerateSourceCodeAttachment] Error:", error);
-      this.sendMessageToWebview("generateSourceCodeAttachmentError", {
-        message:
-          error instanceof Error ? error.message : "An unknown error occurred",
-      });
-    }
-  }
   // Getters for the states
   public getCurrentAssistant(): string | undefined {
     return this._currentAssistant;
@@ -245,18 +240,18 @@ export class VSCodeEventHandler {
 
   private async cancelCurrentRun() {
     if (this._currentRun && this.openaiClient) {
-      console.log("Cancelling current run!")
-      this._currentRun.controller.abort()
+      console.log("Cancelling current run!");
+      this._currentRun.controller.abort();
     }
   }
 
   private async handleChatMessage(payload: {
     accountId: string;
-    conversationId: number;
+    conversationId: string;
     message: string;
     assistant: string;
     model: string;
-    attachDoc: boolean;
+    fileContexts: string[];
   }): Promise<void> {
     console.log(`[Chat] Starting chat message handler with payload:`, payload);
     if (!this.openaiClient) {
@@ -266,6 +261,8 @@ export class VSCodeEventHandler {
       });
       return;
     }
+
+    console.log(`[Chat] File contexts:`, payload.fileContexts);
 
     try {
       console.log(
@@ -308,23 +305,41 @@ export class VSCodeEventHandler {
         }
       }
 
-      payload;
+      console.log(
+        `[Chat] Uploading ${payload.fileContexts.length} files to OpenAI`
+      );
+      const fileIds = await Promise.all([
+        ...payload.fileContexts.map(async (filename) => {
+          console.log(`[Chat] Uploading file: ${filename}`);
+          if (filename === "Source Code") {
+            const { relativePath } = await this.generateDocs();
+            const markdownFileId = await this.uploadFileToOpenAI(relativePath);
+            console.log(`[Chat] Source code uploaded successfully with ID: ${markdownFileId}`);
+            return markdownFileId;
+          } else {
+            const fileId = await this.uploadFileToOpenAI(filename);
+            console.log(`[Chat] File uploaded successfully with ID: ${fileId}`);
+            return fileId;
+          }
+        }),
+      ]);
+
+      const hasAttachments = payload.fileContexts.length > 0;
 
       // Add message to thread
       await this.openaiClient.beta.threads.messages.create(
         conversation.threadId,
         {
           role: "user",
-          content: payload.message,
-          ...(payload.attachDoc &&
-            this._generatedDocPath && {
-              attachments: [
-                {
-                  file_id: this._uploadedFileId,
-                  tools: [{ type: "file_search" }],
-                },
-              ],
-            }),
+          content: hasAttachments
+            ? "Search in the attached files! " + payload.message
+            : payload.message,
+          attachments: [
+            ...fileIds.map((fileId) => ({
+              file_id: fileId,
+              tools: [{ type: "file_search" as const }],
+            }))
+          ],
         }
       );
 
@@ -347,7 +362,7 @@ export class VSCodeEventHandler {
           model: payload.model,
         })
         .on("textCreated", () => {
-          this.sendMessageToWebview("updateTypingStatus", { isTyping: true })
+          this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
         .on("textDelta", (delta, snapshot) => {
           console.log(`[Chat] Received delta: ${delta.value}`);
@@ -395,6 +410,7 @@ export class VSCodeEventHandler {
 
   private async generateDocs(): Promise<
     | {
+        relativePath: string;
         path: string;
         filename: string;
         size: number;
@@ -431,13 +447,11 @@ export class VSCodeEventHandler {
       const markdownContent = Buffer.from(markdown);
       await vscode.workspace.fs.writeFile(markdownUri, markdownContent);
 
-      console.log("[EventHandler] Storing generated Markdown path");
-      this._generatedDocPath = markdownUri.fsPath;
-
       console.log("[EventHandler] Getting file stats");
       const fileStats = await fsProm.stat(markdownUri.fsPath);
       console.log("[EventHandler] Sending success message to webview");
       return {
+        relativePath: markdownUri.fsPath.replace(rootPath, ""),
         path: markdownUri.fsPath,
         filename: markdownFileName,
         size: fileStats.size,
@@ -451,6 +465,62 @@ export class VSCodeEventHandler {
     }
   }
 
+  private async uploadFileToOpenAI(filePath: string): Promise<string> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    const absolutePath = vscode.Uri.file(path.join(rootPath, filePath));
+
+    const fileContent = await vscode.workspace.fs.readFile(absolutePath);
+    const fileName = path.basename(filePath);
+    const fileExt = path.extname(fileName).toLowerCase().slice(1);
+
+    const allowedExtensions = [
+      "c",
+      "cpp",
+      "css",
+      "csv",
+      "doc",
+      "docx",
+      "gif",
+      "go",
+      "html",
+      "java",
+      "jpeg",
+      "jpg",
+      "js",
+      "json",
+      "md",
+      "pdf",
+      "php",
+      "pkl",
+      "png",
+      "pptx",
+      "py",
+      "rb",
+      "tar",
+      "tex",
+      "ts",
+      "txt",
+      "webp",
+      "xlsx",
+      "xml",
+      "zip",
+    ];
+
+    const finalFileName = allowedExtensions.includes(fileExt)
+      ? fileName
+      : `${fileName}.txt`;
+
+    const blob = new Blob([fileContent], { type: "text/plain" });
+    const file = new File([blob], finalFileName);
+
+    const uploadedFile = await this.openaiClient.files.create({
+      file,
+      purpose: "assistants",
+    });
+
+    return uploadedFile.id;
+  }
   private async generateMarkdownContent(rootPath: string): Promise<string> {
     // Enhanced Introduction and Table of Contents
     let markdown = `# Project Source Code Documentation
@@ -607,26 +677,33 @@ ${content.toString()}
     return conversation;
   }
 
-  private async updateConversation(accountId: string, conversation: Conversation): Promise<void> {
+  private async updateConversation(
+    accountId: string,
+    conversation: Conversation
+  ): Promise<void> {
     // Use Map for O(1) lookup instead of find
-    const accountsMap = new Map(this.accountManager.getAccounts().map(acc => [acc.id, acc]));
+    const accountsMap = new Map(
+      this.accountManager.getAccounts().map((acc) => [acc.id, acc])
+    );
     const account = accountsMap.get(accountId);
 
     if (account) {
-        // Update conversations efficiently using Map
-        const conversationsMap = new Map(account.conversations.map(conv => [conv.id, conv]));
-        conversationsMap.set(conversation.id, conversation);
-        
-        account.conversations = Array.from(conversationsMap.values());
-        await this.accountManager.storeAccount(account);
-        
-        // Batch update notifications
-        this.sendMessageToWebview("updateConversation", { 
-            conversation,
-            accountId 
-        });
+      // Update conversations efficiently using Map
+      const conversationsMap = new Map(
+        account.conversations.map((conv) => [conv.id, conv])
+      );
+      conversationsMap.set(conversation.id, conversation);
+
+      account.conversations = Array.from(conversationsMap.values());
+      await this.accountManager.storeAccount(account);
+
+      // Batch update notifications
+      this.sendMessageToWebview("updateConversation", {
+        conversation,
+        accountId,
+      });
     }
-}
+  }
 
   private async deleteConversation(
     accountId: string,
@@ -677,25 +754,6 @@ ${content.toString()}
     }
   }
 
-  private async handleUpload(filePath: string): Promise<
-    | {
-        fileName: string;
-        fileId: string;
-        success: boolean;
-        uploadTime: Date;
-      }
-    | undefined
-  > {
-    if (!filePath) {
-      this.sendMessageToWebview("error", {
-        message: "No documentation file generated yet",
-      });
-      return;
-    }
-
-    return await this.uploadFileOpenAI(filePath);
-  }
-
   private createNewConversation(selectedAccount: any, conversation: any): void {
     console.log(
       `[Conversation Handler] Creating new conversation:`,
@@ -742,64 +800,4 @@ ${content.toString()}
     this.disposables.forEach((disposable) => disposable.dispose());
   }
 
-  private async uploadFileOpenAI(filePath: string): Promise<
-    | {
-        fileName: string;
-        fileId: string;
-        success: boolean;
-        uploadTime: Date;
-      }
-    | undefined
-  > {
-    if (!this.openaiClient) {
-      console.log("[EventHandler] OpenAI client not initialized");
-      this.sendMessageToWebview("error", {
-        message: "Please ensure your API key is set",
-      });
-      return;
-    }
-
-    try {
-      const stats = await fsProm.stat(filePath);
-      console.log(`[EventHandler] File found: ${filePath}`);
-      console.log(`[EventHandler] File size: ${stats.size} bytes`);
-
-      const fileContent = await fsProm.readFile(filePath);
-      const fileName = path.basename(filePath);
-
-      const blob = new Blob([fileContent], { type: "text/markdown" });
-      const file = new File([blob], fileName, { type: "text/markdown" });
-
-      const uploadedFile = await this.openaiClient.files.create({
-        file,
-        purpose: "assistants",
-      });
-
-      const uploadTime = new Date();
-
-      this._uploadedFileId = uploadedFile.id;
-
-      console.log(
-        `[EventHandler] File uploaded successfully with ID: ${uploadedFile.id}`
-      );
-
-      return {
-        fileName,
-        fileId: uploadedFile.id,
-        success: true,
-        uploadTime,
-      };
-      /* this.sendMessageToWebview("uploadComplete", {
-          fileName,
-          fileId: uploadedFile.id,
-          success: true,
-          uploadTime
-      }); */
-    } catch (error) {
-      console.error("[EventHandler] Error uploading file:", error);
-      this.sendMessageToWebview("error", {
-        message: "Error uploading file: " + (error as Error).message,
-      });
-    }
-  }
 }

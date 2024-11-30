@@ -24,7 +24,9 @@ export function ChatTab() {
     setSelectedModel,
     generateSourceCodeAttachment,
     sourceCode,
-    handleCancelRun
+    handleCancelRun,
+    workspaceFiles,
+    requestWorkspaceFiles
   } = useContextMasterContext();
 
   return (
@@ -53,10 +55,12 @@ export function ChatTab() {
             setSelectedAssistant={setSelectedAssistant}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
-            generateSourceCodeAttachment={generateSourceCodeAttachment}
-            sourceCode={sourceCode}
-            isAssistantTyping={isAssistantTyping}
             disabled={!isClientInitialized || !currentConversation}
+            isAssistantTyping={isAssistantTyping}
+            sourceCode={sourceCode}
+            generateSourceCode={generateSourceCodeAttachment}
+            files={workspaceFiles}
+            requestWorkspaceFiles={requestWorkspaceFiles}
           />
         </>
       ) : (

@@ -4,6 +4,8 @@ import { sendMessage } from "@/vscode";
 import ReactDOM from "react-dom";
 
 export function useContextMaster() {
+  const [workspaceFiles, setWorkspaceFiles] = React.useState<string[]>([]);
+
   const [accounts, setAccounts] = React.useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = React.useState<
     string | null
@@ -67,24 +69,9 @@ export function useContextMaster() {
     [accounts, selectedAccountId]
   );
 
-  // Debounce function
-  function debounce(func: Function, wait: number) {
-    let timeout: NodeJS.Timeout;
-    return function executedFunction(...args: any[]) {
-      const later = () => {
-        clearTimeout(timeout);
-        func(...args);
-      };
-      clearTimeout(timeout);
-      timeout = setTimeout(later, wait);
-    };
-  }
-
-
 
   React.useEffect(() => {
     sendMessage("getAccounts", {});
-
     const messageHandler = (event: MessageEvent) => {
       console.debug("Received message:", event);
       const message = event.data;
@@ -101,6 +88,9 @@ export function useContextMaster() {
           break;
         case "updateConversation":
           updateConversation(message.conversation);
+          break;
+        case "updateWorkspaceFiles":
+          setWorkspaceFiles(message.files);
           break;
         case "updateLists":
           console.log("Updating lists:", {
@@ -189,6 +179,10 @@ export function useContextMaster() {
       window.removeEventListener("message", messageHandler);
     };
   }, [sendMessage]);
+
+  const requestWorkspaceFiles = () => {
+    sendMessage("getWorkspaceFiles", {});
+  };
 
   React.useEffect(() => {
     if (selectedAccountId) {
@@ -363,16 +357,20 @@ export function useContextMaster() {
     }
   };
 
-  const handleSendChatMessage = (message: string, attachDoc?: boolean) => {
+  const handleSendChatMessage = (message: string, contextItems: ContextItem[]) => {
     if (!currentConversation || !selectedAccount) return;
-
+  
+    const fileContexts = contextItems
+      .filter(item => item.type === 'file' || item.type === 'fileContext' || item.type === 'sourceCode')
+      .map(item => item.name);
+  
     sendMessage("sendChatMessage", {
       accountId: selectedAccount.id,
       conversationId: currentConversation.id,
       message,
       assistant: selectedAssistant,
       model: selectedModel,
-      attachDoc,
+      fileContexts
     });
   };
 
@@ -419,5 +417,7 @@ export function useContextMaster() {
     sourceCode,
     generateSourceCodeAttachment,
     handleCancelRun,
+    requestWorkspaceFiles,
+    workspaceFiles
   };
 }

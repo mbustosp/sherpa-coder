@@ -99,6 +99,7 @@
     "@types/react-dom": "^18.3.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "cmdk": "1.0.0",
     "ignore": "^6.0.2",
     "isbinaryfile": "^5.0.4",
     "katex": "^0.16.11",
