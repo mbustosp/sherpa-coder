@@ -19,7 +19,8 @@ export default [
         output: {
             file: 'dist/extension.js',
             format: 'commonjs',
-            sourcemap: true
+            sourcemap: true,
+            inlineDynamicImports: true
         },
         external: ['vscode'], // Keep vscode external for the extension
         plugins: [
@@ -52,7 +53,7 @@ export default [
         plugins: [
             alias({
                 entries: [
-                  { find: '@', replacement: path.resolve(__dirname, 'src', 'webview') }
+                  { find: '@', replacement: path.resolve(__dirname, 'src') }
                 ]
               }),
             typescript({
@@ -75,7 +76,7 @@ export default [
                 extensions: ['.js', '.jsx', '.ts', '.tsx']
             }),
             commonjs(),
-            json()
+            json(),
         ]
     },
     {
@@ -88,5 +89,4 @@ export default [
             }),
         ],
     },
-
 ];

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { VSCodeEventHandler } from './EventHandler';
+import { VSCodeEventHandler } from './core/EventHandler';
 
 class SherpaChatViewProvider implements vscode.WebviewViewProvider {
     private static instance: SherpaChatViewProvider | null = null;
