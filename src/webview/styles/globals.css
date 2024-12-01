@@ -60,3 +60,7 @@
     border-color: hsl(var(--border));
   }
 }
+
+.katex {
+  font-size: 1.34em !important;
+}

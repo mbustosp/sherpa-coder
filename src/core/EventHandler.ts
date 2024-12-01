@@ -206,7 +206,8 @@ export class VSCodeEventHandler {
     } catch (error) {
       console.error("[OpenAI Client] Failed to create OpenAI client:", error);
       this.sendMessageToWebview("openAIClient-Error", {
-        message: "Failed to create OpenAI client. Check the API key and try again.",
+        message:
+          "Failed to create OpenAI client. Check the API key and try again.",
       });
       return;
     }
@@ -220,7 +221,7 @@ export class VSCodeEventHandler {
       );
       assistants = assistantsResponse.data;
       this.sendMessageToWebview("assistants-Retrieved", {
-        count: assistantsResponse.data.length
+        count: assistantsResponse.data.length,
       });
     } catch (error) {
       console.error("[OpenAI Client] Failed to fetch assistants:", error);
@@ -239,7 +240,7 @@ export class VSCodeEventHandler {
       );
       console.log(`[OpenAI Client] Found ${gptModels.length} GPT models`);
       this.sendMessageToWebview("models-Retrieved", {
-        count: gptModels.length
+        count: gptModels.length,
       });
     } catch (error) {
       console.error("[OpenAI Client] Failed to fetch models:", error);
@@ -249,7 +250,7 @@ export class VSCodeEventHandler {
       return;
     }
 
-    this.sendMessageToWebview("openAIClient-Done", { });
+    this.sendMessageToWebview("openAIClient-Done", {});
 
     console.log(`[OpenAI Client] Sending lists to webview`);
     if (this.webviewView) {
@@ -287,13 +288,14 @@ export class VSCodeEventHandler {
 
     console.log(`[Chat] File contexts:`, payload.fileContexts);
 
+    let conversation = await this.getConversation(
+      payload.accountId,
+      payload.conversationId
+    );
+
     try {
       console.log(
         `[Chat] Getting conversation for ID: ${payload.conversationId}`
-      );
-      let conversation = await this.getConversation(
-        payload.accountId,
-        payload.conversationId
       );
 
       console.log(`[Chat] Creating user message`);
@@ -368,25 +370,26 @@ export class VSCodeEventHandler {
         }
       );
 
-      // Create assistant message placeholder
+      // Create assistant message placeholder after successful run start
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         content: "",
         sender: "assistant",
         timestamp: new Date().toISOString(),
       };
-      conversation.messages = [...conversation.messages, assistantMessage];
 
       console.log(
         `[Chat] Starting thread run with assistant: ${payload.assistant}`
       );
       // Start streaming run
-      const run = this.openaiClient.beta.threads.runs
+      const run = await this.openaiClient.beta.threads.runs
         .stream(conversation.threadId, {
           assistant_id: payload.assistant,
           model: payload.model,
         })
         .on("textCreated", () => {
+          // Add message to conversation only after successful connection
+          conversation.messages = [...conversation.messages, assistantMessage];
           this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
         .on("textDelta", (delta, snapshot) => {
@@ -421,14 +424,54 @@ export class VSCodeEventHandler {
         .on("end", async () => {
           this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
           await this.updateConversation(payload.accountId, conversation);
+        })
+        .on("error", async (error) => {
+          console.error("[Chat] Error processing chat message:", error);
+
+          // Create and add system error message
+          const systemErrorMessage: Message = {
+            id: crypto.randomUUID(),
+            content: `Error: ${
+              error instanceof Error
+                ? error.message
+                : "Failed to process chat message"
+            }`,
+            sender: "system",
+            timestamp: new Date().toISOString(),
+          };
+
+          // Add the error message to conversation
+          conversation.messages = [
+            ...conversation.messages,
+            systemErrorMessage,
+          ];
+
+          // Update the conversation with the error message
+          this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
+          await this.updateConversation(payload.accountId, conversation);
         });
 
       this._currentRun = run;
     } catch (error) {
       console.error("[Chat] Error processing chat message:", error);
-      this.sendMessageToWebview("error", {
-        message: "Failed to process chat message",
-      });
+
+      // Create and add system error message
+      const systemErrorMessage: Message = {
+        id: crypto.randomUUID(),
+        content: `Error: ${
+          error instanceof Error
+            ? error.message
+            : "Failed to process chat message"
+        }`,
+        sender: "system",
+        timestamp: new Date().toISOString(),
+      };
+
+      // Add the error message to conversation
+      conversation.messages = [...conversation.messages, systemErrorMessage];
+
+      // Update the conversation with the error message
+      await this.updateConversation(payload.accountId, conversation);
       this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
     }
   }

@@ -19,7 +19,7 @@ export interface Account {
   export interface Message {
     id: string;
     content: string;
-    sender: 'user' | 'assistant';
+    sender: 'user' | 'assistant' | 'system';
     timestamp: string;
   }
   

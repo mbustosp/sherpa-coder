@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  AlertTriangle,
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -30,7 +31,6 @@ import { useTheme } from "@/webview/providers/themeProvider";
 
 interface ChatWindowProps {
   messages: Message[];
-  error?: string;
   isAssistantTyping?: boolean;
   autoScroll?: boolean;
   handleCancelRun: () => void;
@@ -48,7 +48,6 @@ const processMessageContent = (content: string): string => {
 
 export function ChatWindow({
   messages = [],
-  error,
   isAssistantTyping,
   autoScroll = true,
   handleCancelRun,
@@ -67,12 +66,10 @@ export function ChatWindow({
     return messages.slice(currentWindowStart, currentWindowStart + windowSize);
   }, [messages, currentWindowStart, windowSize]);
 
-  // Reset to last window when messages change and assistant is typing
+  // Update window position when messages change
   useEffect(() => {
-    if (isAssistantTyping) {
-      setCurrentWindowStart(Math.max(0, messages.length - windowSize));
-    }
-  }, [messages, isAssistantTyping, windowSize]);
+    setCurrentWindowStart(Math.max(0, messages.length - windowSize));
+  }, [messages, windowSize]);
 
   const canMoveNext =
     currentWindowStart + windowSize < messages.length && !isAssistantTyping;
@@ -90,26 +87,13 @@ export function ChatWindow({
     }
   };
 
-  // Reset to last window when messages change and assistant is typing
-  useEffect(() => {
-    if (isAssistantTyping) {
-      setCurrentWindowStart(Math.max(0, messages.length - windowSize));
-    }
-  }, [messages, isAssistantTyping, windowSize]);
-
   const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   };
 
   useEffect(() => {
     if (autoScroll) {
-      // Get the last message if it exists
-      const lastMessage = messages[messages.length - 1];
       scrollToBottom();
-      // Scroll on any message content change or new messages
-      /* if (lastMessage) {
-        scrollToBottom();
-      } */
     }
   }, [messages, autoScroll, messages[messages.length - 1]?.content]);
 
@@ -199,9 +183,17 @@ export function ChatWindow({
                     className={`rounded-lg p-3 ${
                       message.sender === "user"
                         ? "bg-primary text-primary-foreground"
+                        : message.sender === "system"
+                        ? "bg-yellow-100 dark:bg-yellow-900 border-2 border-yellow-400"
                         : "bg-muted"
                     }`}
                   >
+                    {message.sender === "system" && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                        <span className="font-medium text-yellow-600 dark:text-yellow-400">System Message</span>
+                      </div>
+                    )}
                     <div className="relative">
                       <TooltipProvider>
                         <Tooltip>
@@ -294,7 +286,7 @@ export function ChatWindow({
                         {new Date(message.timestamp).toLocaleString()}
                       </span>
                       <span className="font-semibold">
-                        {message.sender === "user" ? "You" : "Assistant"}
+                        {message.sender === "user" ? "You" : message.sender === "system" ? "System" : "Assistant"}
                       </span>
                     </div>
                   </div>
@@ -303,7 +295,6 @@ export function ChatWindow({
             ))
           )}
         </div>
-        {error && <div className="text-red-500 mt-2">{error}</div>}
         {isAssistantTyping && (
           <div className="text-muted-foreground mt-2">
             Assistant is typing...

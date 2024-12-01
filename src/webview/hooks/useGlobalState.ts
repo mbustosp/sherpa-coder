@@ -43,6 +43,7 @@ export function useGlobalState() {
 React.useEffect(() => {
   if (selectedAccountId) {
     setIsLoading(true);
+    setError(null);
     setCurrentConversation(null);
     sendMessage("selectAccount", { accountId: selectedAccountId });
   }

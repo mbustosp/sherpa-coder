@@ -14,7 +14,6 @@ export function ChatTab() {
     handleSendChatMessage,
     handleDeleteConversation,
     isClientInitialized,
-    error,
     isAssistantTyping,
     assistants,
     models,
@@ -41,7 +40,6 @@ export function ChatTab() {
         <>
           <ChatWindow
             messages={currentConversation?.messages || []}
-            error={error || undefined}
             isAssistantTyping={isAssistantTyping}
             handleCancelRun={handleCancelRun}
           />

@@ -153,7 +153,7 @@ export function ConversationSelector({
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setIsNewConversationDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleNewConversation}>Create</Button>
           </DialogFooter>
