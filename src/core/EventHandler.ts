@@ -6,13 +6,13 @@ import { isBinaryFile } from "isbinaryfile";
 import * as path from "path";
 import ignore from "ignore";
 import { Conversation, Message } from "src/types";
+import log from '@/utils/logger';
 
 export class VSCodeEventHandler {
   private static instance: VSCodeEventHandler;
   private accountManager: AccountManager;
   private disposables: vscode.Disposable[] = [];
   private webviewView: vscode.WebviewView | undefined;
-  private context: vscode.ExtensionContext;
   private openaiClient: OpenAI | null = null;
   private _currentAssistant: string | undefined;
   private _currentModel: string | undefined;
@@ -26,7 +26,6 @@ export class VSCodeEventHandler {
   }
 
   private constructor(context: vscode.ExtensionContext) {
-    this.context = context;
     this.accountManager = AccountManager.getInstance(context);
     vscode.window.onDidChangeActiveColorTheme(() => {
       if (this.webviewView) {
@@ -109,7 +108,7 @@ export class VSCodeEventHandler {
     payload: any;
   }): Promise<void> {
     // Log the incoming message with type and payload
-    console.log(`[Sherpa Coder Webview Message] Received message:`, {
+    log.info(`[Sherpa Coder Webview Message] Received message:`, {
       type: message.type,
       payload: message.payload,
     });
@@ -135,7 +134,6 @@ export class VSCodeEventHandler {
         break;
       case "getAccounts":
         this.getAccounts();
-
         break;
       case "getApiKey":
         await this.initializeOpenAIClient(message.payload.accountId);
@@ -149,20 +147,20 @@ export class VSCodeEventHandler {
         break;
       case "updateAssistant":
         this._currentAssistant = message.payload.assistantId;
-        console.log(
+        log.info(
           `[EventHandler] Updated current assistant: ${this._currentAssistant}`
         );
         break;
       case "updateModel":
         this._currentModel = message.payload.modelId;
-        console.log(
+        log.info(
           `[EventHandler] Updated current model: ${this._currentModel}`
         );
         break;
       case "removeExtensionData":
-        console.log(`[EventHandler] Removing extension data`);
+        log.info(`[EventHandler] Removing extension data`);
         this.accountManager.deleteAllAccounts();
-        console.log(`[EventHandler] Extension data removed`);
+        log.info(`[EventHandler] Extension data removed`);
       case "cancelRun":
         await this.cancelCurrentRun();
         break;
@@ -171,7 +169,7 @@ export class VSCodeEventHandler {
         this.sendMessageToWebview("updateWorkspaceFiles", { files });
         break;
       default:
-        console.log(`Unhandled message type: ${message.type}`, message.payload);
+        log.info(`Unhandled message type: ${message.type}`, message.payload);
     }
   }
 
@@ -185,13 +183,13 @@ export class VSCodeEventHandler {
   }
 
   private async initializeOpenAIClient(accountId: string): Promise<void> {
-    console.log(
+    log.info(
       `[OpenAI Client] Initializing client for account ID: ${accountId}`
     );
     this.sendMessageToWebview("openAIClient-Connecting", {});
     const apiKey = await this.accountManager.getApiKey(accountId);
     if (!apiKey) {
-      console.log(
+      log.info(
         `[OpenAI Client] No API key found for account ID: ${accountId}`
       );
       this.sendMessageToWebview("openAIClient-Error", {});
@@ -199,12 +197,12 @@ export class VSCodeEventHandler {
     }
 
     try {
-      console.log(`[OpenAI Client] Creating new OpenAI client instance`);
+      log.info(`[OpenAI Client] Creating new OpenAI client instance`);
       this.openaiClient = new OpenAI({ apiKey });
       await this.openaiClient.models.retrieve("gpt-4");
       this.sendMessageToWebview("openAIClient-Connected", {});
     } catch (error) {
-      console.error("[OpenAI Client] Failed to create OpenAI client:", error);
+      log.error("[OpenAI Client] Failed to create OpenAI client:", error);
       this.sendMessageToWebview("openAIClient-Error", {
         message:
           "Failed to create OpenAI client. Check the API key and try again.",
@@ -214,9 +212,9 @@ export class VSCodeEventHandler {
 
     let assistants;
     try {
-      console.log(`[OpenAI Client] Fetching assistants list`);
+      log.info(`[OpenAI Client] Fetching assistants list`);
       const assistantsResponse = await this.openaiClient.beta.assistants.list();
-      console.log(
+      log.info(
         `[OpenAI Client] Retrieved ${assistantsResponse.data.length} assistants`
       );
       assistants = assistantsResponse.data;
@@ -224,7 +222,7 @@ export class VSCodeEventHandler {
         count: assistantsResponse.data.length,
       });
     } catch (error) {
-      console.error("[OpenAI Client] Failed to fetch assistants:", error);
+      log.error("[OpenAI Client] Failed to fetch assistants:", error);
       this.sendMessageToWebview("openAIClient-Error", {
         message: "Failed to fetch assistants list.",
       });
@@ -233,17 +231,17 @@ export class VSCodeEventHandler {
 
     let gptModels;
     try {
-      console.log(`[OpenAI Client] Fetching models list`);
+      log.info(`[OpenAI Client] Fetching models list`);
       const modelsResponse = await this.openaiClient.models.list();
       gptModels = modelsResponse.data.filter((model) =>
         model.id.startsWith("gpt-")
       );
-      console.log(`[OpenAI Client] Found ${gptModels.length} GPT models`);
+      log.info(`[OpenAI Client] Found ${gptModels.length} GPT models`);
       this.sendMessageToWebview("models-Retrieved", {
         count: gptModels.length,
       });
     } catch (error) {
-      console.error("[OpenAI Client] Failed to fetch models:", error);
+      log.error("[OpenAI Client] Failed to fetch models:", error);
       this.sendMessageToWebview("openAIClient-Error", {
         message: "Failed to fetch models list.",
       });
@@ -252,7 +250,7 @@ export class VSCodeEventHandler {
 
     this.sendMessageToWebview("openAIClient-Done", {});
 
-    console.log(`[OpenAI Client] Sending lists to webview`);
+    log.info(`[OpenAI Client] Sending lists to webview`);
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
         command: "updateLists",
@@ -264,7 +262,7 @@ export class VSCodeEventHandler {
 
   private async cancelCurrentRun() {
     if (this._currentRun && this.openaiClient) {
-      console.log("Cancelling current run!");
+      log.info("Cancelling current run!");
       this._currentRun.controller.abort();
     }
   }
@@ -277,16 +275,16 @@ export class VSCodeEventHandler {
     model: string;
     fileContexts: string[];
   }): Promise<void> {
-    console.log(`[Chat] Starting chat message handler with payload:`, payload);
+    log.info(`[Chat] Starting chat message handler with payload:`, payload);
     if (!this.openaiClient) {
-      console.log(`[Chat] Error: OpenAI client not initialized`);
+      log.info(`[Chat] Error: OpenAI client not initialized`);
       this.sendMessageToWebview("error", {
         message: "OpenAI client not initialized",
       });
       return;
     }
 
-    console.log(`[Chat] File contexts:`, payload.fileContexts);
+    log.info(`[Chat] File contexts:`, payload.fileContexts);
 
     let conversation = await this.getConversation(
       payload.accountId,
@@ -294,11 +292,11 @@ export class VSCodeEventHandler {
     );
 
     try {
-      console.log(
+      log.info(
         `[Chat] Getting conversation for ID: ${payload.conversationId}`
       );
 
-      console.log(`[Chat] Creating user message`);
+      log.info(`[Chat] Creating user message`);
       const userMessage: Message = {
         id: crypto.randomUUID(),
         content: payload.message,
@@ -308,44 +306,44 @@ export class VSCodeEventHandler {
       conversation.messages = [...conversation.messages, userMessage];
       conversation.lastMessage = userMessage.content;
 
-      console.log(`[Chat] Sending typing indicator and conversation update`);
+      log.info(`[Chat] Sending typing indicator and conversation update`);
       this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
       this.sendMessageToWebview("updateConversation", { conversation });
 
       // Handle thread creation or retrieval
       if (!conversation.threadId) {
-        console.log(`[Chat] No existing thread, creating new one`);
+        log.info(`[Chat] No existing thread, creating new one`);
         const thread = await this.openaiClient.beta.threads.create();
         conversation.threadId = thread.id;
         await this.updateConversation(payload.accountId, conversation);
       } else {
-        console.log(`[Chat] Using existing thread: ${conversation.threadId}`);
+        log.info(`[Chat] Using existing thread: ${conversation.threadId}`);
         try {
           await this.openaiClient.beta.threads.retrieve(conversation.threadId);
         } catch (error) {
-          console.log(`[Chat] Thread not found, creating new one`);
+          log.info(`[Chat] Thread not found, creating new one`);
           const thread = await this.openaiClient.beta.threads.create();
           conversation.threadId = thread.id;
           await this.updateConversation(payload.accountId, conversation);
         }
       }
 
-      console.log(
+      log.info(
         `[Chat] Uploading ${payload.fileContexts.length} files to OpenAI`
       );
       const fileIds = await Promise.all([
         ...payload.fileContexts.map(async (filename) => {
-          console.log(`[Chat] Uploading file: ${filename}`);
+          log.info(`[Chat] Uploading file: ${filename}`);
           if (filename === "Source Code") {
             const { relativePath } = await this.generateDocs();
             const markdownFileId = await this.uploadFileToOpenAI(relativePath);
-            console.log(
+            log.info(
               `[Chat] Source code uploaded successfully with ID: ${markdownFileId}`
             );
             return markdownFileId;
           } else {
             const fileId = await this.uploadFileToOpenAI(filename);
-            console.log(`[Chat] File uploaded successfully with ID: ${fileId}`);
+            log.info(`[Chat] File uploaded successfully with ID: ${fileId}`);
             return fileId;
           }
         }),
@@ -378,7 +376,7 @@ export class VSCodeEventHandler {
         timestamp: new Date().toISOString(),
       };
 
-      console.log(
+      log.info(
         `[Chat] Starting thread run with assistant: ${payload.assistant}`
       );
       // Start streaming run
@@ -393,7 +391,7 @@ export class VSCodeEventHandler {
           this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
         .on("textDelta", (delta, snapshot) => {
-          console.log(`[Chat] Received delta: ${delta.value}`);
+          log.info(`[Chat] Received delta: ${delta.value}`);
           assistantMessage.content += delta.value;
           this.sendMessageToWebview("updateMessage", {
             messageId: assistantMessage.id,
@@ -426,7 +424,7 @@ export class VSCodeEventHandler {
           await this.updateConversation(payload.accountId, conversation);
         })
         .on("error", async (error) => {
-          console.error("[Chat] Error processing chat message:", error);
+          log.error("[Chat] Error processing chat message:", error);
 
           // Create and add system error message
           const systemErrorMessage: Message = {
@@ -453,7 +451,7 @@ export class VSCodeEventHandler {
 
       this._currentRun = run;
     } catch (error) {
-      console.error("[Chat] Error processing chat message:", error);
+      log.error("[Chat] Error processing chat message:", error);
 
       // Create and add system error message
       const systemErrorMessage: Message = {
@@ -483,38 +481,38 @@ export class VSCodeEventHandler {
     size: number;
     success: boolean;
   }> {
-    console.log("[EventHandler] Starting documentation generation");
-    console.log("[EventHandler] Checking workspace folders");
+    log.info("[EventHandler] Starting documentation generation");
+    log.info("[EventHandler] Checking workspace folders");
     const workspaceFolders = vscode.workspace.workspaceFolders;
 
     if (!workspaceFolders) {
-      console.log("[EventHandler] No workspace folders found");
+      log.info("[EventHandler] No workspace folders found");
       this.sendMessageToWebview("error", {
         message: "No workspace folder open",
       });
       throw new Error("No workspace folder open");
     }
 
-    console.log("[EventHandler] Setting up file paths");
+    log.info("[EventHandler] Setting up file paths");
     const rootPath = workspaceFolders[0].uri.fsPath;
     const sherpaDir = path.join(rootPath, ".sherpa-files");
     const markdownFileName = "project-documentation.txt";
     const markdownUri = vscode.Uri.file(path.join(sherpaDir, markdownFileName));
 
     try {
-      console.log("[EventHandler] Creating .sherpa-files directory");
+      log.info("[EventHandler] Creating .sherpa-files directory");
       await vscode.workspace.fs.createDirectory(vscode.Uri.file(sherpaDir));
 
-      console.log("[EventHandler] Generating markdown content");
+      log.info("[EventHandler] Generating markdown content");
       const markdown = await this.generateMarkdownContent(rootPath);
 
-      console.log("[EventHandler] Writing markdown file");
+      log.info("[EventHandler] Writing markdown file");
       const markdownContent = Buffer.from(markdown);
       await vscode.workspace.fs.writeFile(markdownUri, markdownContent);
 
-      console.log("[EventHandler] Getting file stats");
+      log.info("[EventHandler] Getting file stats");
       const fileStats = await fsProm.stat(markdownUri.fsPath);
-      console.log("[EventHandler] Sending success message to webview");
+      log.info("[EventHandler] Sending success message to webview");
       return {
         relativePath: markdownUri.fsPath.replace(rootPath, ""),
         path: markdownUri.fsPath,
@@ -523,7 +521,7 @@ export class VSCodeEventHandler {
         success: true,
       };
     } catch (error) {
-      console.error("[EventHandler] Error generating documentation:", error);
+      log.error("[EventHandler] Error generating documentation:", error);
       this.sendMessageToWebview("error", {
         message: "Error generating documentation: " + (error as Error).message,
       });
@@ -538,7 +536,7 @@ export class VSCodeEventHandler {
     }
 
     if (!this.openaiClient) {
-      console.error("[EventHandler] OpenAI client not initialized");
+      log.error("[EventHandler] OpenAI client not initialized");
       throw new Error("OpenAI client not initialized");
     }
 
@@ -740,7 +738,7 @@ ${content.toString()}
       try {
         await this.openaiClient.beta.threads.retrieve(conversation.threadId);
       } catch (error) {
-        console.log(
+        log.info(
           `[Chat] Thread ${conversation.threadId} not found, creating new thread`
         );
         const newThread = await this.openaiClient.beta.threads.create();
@@ -784,7 +782,7 @@ ${content.toString()}
     accountId: string,
     conversationId: string
   ): Promise<void> {
-    console.log(
+    log.info(
       `[Conversation Handler] Deleting conversation ${conversationId} for account ID: ${accountId}`
     );
     const accounts = this.accountManager.getAccounts();
@@ -802,14 +800,14 @@ ${content.toString()}
         conversationId,
       });
     } else {
-      console.log(
+      log.info(
         `[Conversation Handler] Account not found with ID: ${accountId}`
       );
     }
   }
 
   private sendMessageToWebview(command: string, payload: any): void {
-    console.log(`[Webview Message] Sending message:`, { command, payload });
+    log.info(`[Webview Message] Sending message:`, { command, payload });
     if (this.webviewView) {
       this.webviewView.webview.postMessage({ command, ...payload });
     }
@@ -819,7 +817,7 @@ ${content.toString()}
     const accounts = this.accountManager.getAccounts();
     const selectedAccountId = this.accountManager.getSelectedAccount();
     this.initializeWithStoredAccount();
-    console.log(`[Account Handler] Getting accounts:`, accounts);
+    log.info(`[Account Handler] Getting accounts:`, accounts);
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
         command: "updateAccounts",
@@ -830,7 +828,7 @@ ${content.toString()}
   }
 
   private createNewConversation(selectedAccount: any, conversation: any): void {
-    console.log(
+    log.info(
       `[Conversation Handler] Creating new conversation:`,
       selectedAccount,
       conversation
@@ -843,18 +841,17 @@ ${content.toString()}
   }
 
   private async createAccount(account: any): Promise<void> {
-    console.log(`[Account Handler] Creating new account:`, account);
+    log.info(`[Account Handler] Creating new account:`, account);
     try {
       await this.accountManager.storeAccount(account);
     } catch (error) {
-      console.error(`[Account Handler] Error creating account:`, error);
+      log.error(`[Account Handler] Error creating account:`, error);
     } // Implement the logic to handle creating a new account
   }
 
   private async deleteAccount(accountId: string): Promise<void> {
-    console.log(`[Account Handler] Deleting account with ID: ${accountId}`);
+    log.info(`[Account Handler] Deleting account with ID: ${accountId}`);
     await this.accountManager.deleteAccount(accountId);
-    // Implement the logic to handle deleting an account
   }
 
   public registerWebviewMessageHandler(

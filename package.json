@@ -104,6 +104,7 @@
     "ignore": "^6.0.2",
     "isbinaryfile": "^5.0.4",
     "katex": "^0.16.11",
+    "loglevel": "^1.9.2",
     "lucide-react": "^0.460.0",
     "openai": "^4.72.0",
     "react": "^18.3.1",

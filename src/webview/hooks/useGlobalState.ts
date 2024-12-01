@@ -1,5 +1,6 @@
 import { sendMessage } from "@/core/VSCodeAPI";
 import { Account, Conversation, ContextItem } from "@/types";
+import log from "@/utils/logger";
 import * as React from "react";
 import ReactDOM from "react-dom";
 
@@ -52,13 +53,13 @@ React.useEffect(() => {
   React.useEffect(() => {
     sendMessage("getAccounts", {});
     const messageHandler = (event: MessageEvent) => {
-      console.debug("Received message:", event);
+      log.debug("Received message:", event);
       const message = event.data;
 
       switch (message.command) {
         case "updateAccounts":
-          console.debug("Updating accounts:", message.accounts);
-          console.debug("Selected Account Id:", message.selectedAccountId);
+          log.debug("Updating accounts:", message.accounts);
+          log.debug("Selected Account Id:", message.selectedAccountId);
           setAccounts(message.accounts);
           if (message.selectedAccountId) {
             setSelectedAccountId(message.selectedAccountId);
@@ -72,7 +73,7 @@ React.useEffect(() => {
           setWorkspaceFiles(message.files);
           break;
         case "updateLists":
-          console.log("Updating lists:", {
+          log.info("Updating lists:", {
             assistants: message.assistants,
             models: message.models,
           });
@@ -83,7 +84,7 @@ React.useEffect(() => {
           setIsLoading(false);
           break;
         case "error":
-          console.debug("Error received:", message.message);
+          log.debug("Error received:", message.message);
           setError(message.message);
           setIsLoading(false);
           setOpenAIClientStatus(prev => ({ ...prev, status: 'error', error: message.message }));
@@ -97,7 +98,7 @@ React.useEffect(() => {
           setOpenAIClientStatus({ status: 'connecting' });
           break;
         case "openAIClient-Connected":
-          console.debug("OpenAI client connected");
+          log.debug("OpenAI client connected");
           setOpenAIClientStatus({ status: 'connected' });
           break;
         case "openAIClient-Error":
@@ -106,11 +107,11 @@ React.useEffect(() => {
           setOpenAIClientStatus({ status: 'error', error: message.message || "Failed to initialize OpenAI client" });
           break;
         case "assistants-Retrieved":
-          console.debug(`Retrieved ${message.count} assistants`);
+          log.debug(`Retrieved ${message.count} assistants`);
           setOpenAIClientStatus(prev => ({ ...prev, status: 'retrievingAssistants', assistantsCount: message.count }));
           break;
         case "models-Retrieved":
-          console.debug(`Retrieved ${message.count} models`);
+          log.debug(`Retrieved ${message.count} models`);
           setOpenAIClientStatus(prev => ({ ...prev, status: 'retrievingModels', modelsCount: message.count }));
           break;
         case "openAIClient-Done":
@@ -216,7 +217,7 @@ React.useEffect(() => {
       lastMessage: "",
     };
 
-    console.log("Creating new conversation:", newConversation);
+    log.info("Creating new conversation:", newConversation);
 
     const updatedAccount = {
       ...selectedAccount,

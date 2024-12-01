@@ -24,6 +24,11 @@ export default [
         },
         external: ['vscode'], // Keep vscode external for the extension
         plugins: [
+            alias({
+                entries: [
+                  { find: '@', replacement: path.resolve(__dirname, 'src') }
+                ]
+              }),
             typescript({
                 tsconfig: false,
                 compilerOptions: {
