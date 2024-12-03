@@ -1,71 +1,34 @@
-# sherpa-coder README
+# Sherpa Coder - VS Code Extension
 
-This is the README for your extension "sherpa-coder". After writing up a brief description, we recommend including the following sections.
+Welcome to the Sherpa Coder extension for Visual Studio Code! This extension is designed to enhance your coding experience by integrating OpenAI assistants directly into your VS Code environment.
 
-## Features
+## What's in the Folder
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **`package.json`**: The manifest file where you declare your extension and command. It registers commands and defines their titles and command names, allowing VS Code to display them in the command palette.
 
-For example if there is an image subfolder under your extension project workspace:
+- **`src/extension.ts`**: The main file for implementing your extension's functionality. It exports an `activate` function, which is called the first time your extension is activated. This function is responsible for setting up your extension, including registering commands.
 
-\!\[feature X\]\(images/feature-x.png\)
+- **`src/core/EventHandler.ts`**: Contains the `VSCodeEventHandler` class, which manages events within the extension.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## Getting Started
 
-## Requirements
+### Run Your Extension
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+1. Press `F5` to open a new window with the Sherpa Coder extension loaded.
+2. Execute your command from the command palette by pressing `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and typing the command name.
+3. Set breakpoints in `src/extension.ts` to debug your extension.
+4. View output from your extension in the debug console.
 
-## Extension Settings
+### Make Changes
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+- Relaunch the extension from the debug toolbar after modifying code in `src/extension.ts`.
+- Reload the VS Code window with your extension using `Ctrl+R` (or `Cmd+R` on Mac) to apply changes.
 
-For example:
+## TODO
 
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+- [x] Add tests to ensure the functionality and reliability of the extension.
+- [x] Improve documentation to provide more comprehensive guidance on using and developing the extension.
 
 ---
 
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+This README provides an overview to help you get started with developing and using the Sherpa Coder extension. For more detailed information, refer to the official [VS Code Extension API documentation](https://code.visualstudio.com/api).
