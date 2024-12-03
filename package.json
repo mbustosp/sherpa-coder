@@ -2,12 +2,12 @@
   "name": "sherpa-coder",
   "displayName": "Sherpa Coder",
   "description": "Sherpa Coder is a VSCode extension that helps you code faster and more efficiently.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.95.0"
   },
   "categories": [
-    "Other"
+    "AI", "Chat"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -29,25 +29,7 @@
           "icon": "resources/sherpa.svg"
         }
       ]
-    },
-    "walkthroughs": [
-      {
-        "id": "sherpa-coder.welcome",
-        "title": "Get Started with Sherpa Coder",
-        "description": "Let's set up your AI coding assistant",
-        "steps": [
-          {
-            "id": "setup.apikey",
-            "title": "Set up your OpenAI API Key",
-            "description": "Configure your OpenAI account to start using Sherpa Coder",
-            "media": {
-              "image": "resources/setup-apikey.png",
-              "altText": "OpenAI API key setup"
-            }
-          }
-        ]
-      }
-    ]
+    }
   },
   "scripts": {
     "build": "rollup -c",
@@ -55,7 +37,6 @@
     "vscode:prepublish": "npm run build"
   },
   "devDependencies": {
-    "@radix-ui/react-icons": "^1.3.2",
     "@rollup/plugin-alias": "^5.1.1",
     "@rollup/plugin-commonjs": "^28.0.1",
     "@rollup/plugin-node-resolve": "^15.3.0",
@@ -76,9 +57,11 @@
     "rollup-plugin-postcss": "^4.0.2",
     "tailwindcss": "^3.4.15",
     "tslib": "^2.8.1",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vscode": "^1.1.37"
   },
   "dependencies": {
+    "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-alert-dialog": "^1.1.2",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",
@@ -115,8 +98,7 @@
     "remark-gfm": "^4.0.0",
     "remark-math": "^6.0.0",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss-animate": "^1.0.7",
-    "vscode": "^1.1.37"
+    "tailwindcss-animate": "^1.0.7"
   },
   "peerDependencies": {
     "react": "^18.3.1",
