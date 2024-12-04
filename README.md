@@ -8,6 +8,7 @@ Visit [www.sherpacoder.dev](https://www.sherpacoder.dev)
 
 ### 1. Create Your Account
 To begin using Sherpa Coder, you'll need to create an account. Simply provide an alias for your account name and enter your OpenAI API Key. All information is stored locally on your machine - there are no external servers involved, only direct communication with the OpenAI API. This will enable you to access all the powerful features of the extension.
+
 ![Creating Account](images/1-creating_account.png)
 
 ### 2. Select Your Account
