@@ -17,10 +17,7 @@
   "bugs": {
     "url": "https://github.com/mbustosp/sherpa-coder/issues"
   },
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:mbustosp/sherpa-coder.git"
-  },
+  "repository": "https://github.com/mbustosp/sherpa-coder",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
