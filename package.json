@@ -7,9 +7,20 @@
     "vscode": "^1.95.0"
   },
   "categories": [
-    "AI", "Chat"
+    "AI",
+    "Chat"
   ],
   "main": "./dist/extension.js",
+  "icon": "images/sherpa-128.png",
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "homepage": "https://www.sherpacoder.dev",
+  "bugs": {
+    "url": "https://github.com/mbustosp/sherpa-coder/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:mbustosp/sherpa-coder.git"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [

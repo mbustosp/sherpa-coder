@@ -1,34 +1,60 @@
+Visit [www.sherpacoder.dev](https://www.sherpacoder.dev)
+
 # Sherpa Coder - VS Code Extension
 
-Welcome to the Sherpa Coder extension for Visual Studio Code! This extension is designed to enhance your coding experience by integrating OpenAI assistants directly into your VS Code environment.
-
-## What's in the Folder
-
-- **`package.json`**: The manifest file where you declare your extension and command. It registers commands and defines their titles and command names, allowing VS Code to display them in the command palette.
-
-- **`src/extension.ts`**: The main file for implementing your extension's functionality. It exports an `activate` function, which is called the first time your extension is activated. This function is responsible for setting up your extension, including registering commands.
-
-- **`src/core/EventHandler.ts`**: Contains the `VSCodeEventHandler` class, which manages events within the extension.
+🚀 Welcome to the Sherpa Coder extension for Visual Studio Code! ✨ This extension is designed to enhance your coding experience by integrating OpenAI assistants directly into your VS Code environment. 🤖
 
 ## Getting Started
 
-### Run Your Extension
+### 1. Create Your Account
+To begin using Sherpa Coder, you'll need to create an account. Simply provide an alias for your account name and enter your OpenAI API Key. All information is stored locally on your machine - there are no external servers involved, only direct communication with the OpenAI API. This will enable you to access all the powerful features of the extension.
+![Creating Account](images/1-creating_account.png)
 
-1. Press `F5` to open a new window with the Sherpa Coder extension loaded.
-2. Execute your command from the command palette by pressing `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and typing the command name.
-3. Set breakpoints in `src/extension.ts` to debug your extension.
-4. View output from your extension in the debug console.
+### 2. Select Your Account
+Once your account is set up, choose it from the accounts list to start using the extension.
 
-### Make Changes
+![Choosing Account](images/2-choosing_account.png)
 
-- Relaunch the extension from the debug toolbar after modifying code in `src/extension.ts`.
-- Reload the VS Code window with your extension using `Ctrl+R` (or `Cmd+R` on Mac) to apply changes.
+### 3. Access the Chat Interface
+Navigate to the chat tab to initiate a new conversation with the AI assistant.
 
-## TODO
+![Creating Conversation](images/3-creating_conversation.png)
 
-- [x] Add tests to ensure the functionality and reliability of the extension.
-- [x] Improve documentation to provide more comprehensive guidance on using and developing the extension.
+### 4. Name Your Conversation
+Give your conversation a meaningful name to help you organize and track your interactions.
 
----
+![Naming Conversation](images/4-giving_a_name.png)
 
-This README provides an overview to help you get started with developing and using the Sherpa Coder extension. For more detailed information, refer to the official [VS Code Extension API documentation](https://code.visualstudio.com/api).
+### 5. Start Chatting
+You're now ready to interact with the AI assistant! Type your messages and receive intelligent responses in real-time.
+
+![Chat Interface](images/5-chat_prompt.png)
+
+### 6. Customize Your Experience
+Click on settings to choose your preferred AI model and assistant for each message, tailoring the interaction to your specific needs.
+
+![Model and Assistant Selection](images/6-model-assistant.png)
+
+### 7. Enhance with File Attachments
+Take advantage of the powerful file attachment feature:
+- Attach files directly from your workspace
+- Generate and attach a markdown file containing your entire workspace's source code
+- Provide context-rich information to the AI assistant
+
+![File Attachments](images/7-attachments.png)
+
+## Important Notes
+
+### File Search Capability
+To utilize the attachments feature effectively, ensure that your OpenAI assistants have the "search in files" feature activated in their assistant settings.
+
+### Message Retention
+Messages stored in threads are subject to OpenAI API's default retention policy. For more information, please refer to the [OpenAI documentation](https://platform.openai.com/docs/assistants/tools/file-search)
+
+## Contributing
+This is an open source project and contributions are welcome! If you'd like to contribute, feel free to submit a pull request or open an issue.
+
+## Support the Project
+If you find this extension helpful, you can support its development by buying me a coffee:
+
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/mbustosp)
