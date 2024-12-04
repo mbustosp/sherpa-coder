@@ -6,7 +6,7 @@ import { isBinaryFile } from "isbinaryfile";
 import * as path from "path";
 import ignore from "ignore";
 import { Conversation, Message } from "src/types";
-import log from '@/utils/logger';
+import log from "@/utils/logger";
 
 export class VSCodeEventHandler {
   private static instance: VSCodeEventHandler;
@@ -142,6 +142,9 @@ export class VSCodeEventHandler {
         this.accountManager.setSelectedAccount(message.payload.accountId);
         await this.initializeOpenAIClient(message.payload.accountId);
         break;
+      case "refreshModelsAndAssistants":
+        this.refreshModelsAndAssistants();
+        break;
       case "sendChatMessage":
         this.handleChatMessage(message.payload);
         break;
@@ -153,9 +156,7 @@ export class VSCodeEventHandler {
         break;
       case "updateModel":
         this._currentModel = message.payload.modelId;
-        log.info(
-          `[EventHandler] Updated current model: ${this._currentModel}`
-        );
+        log.info(`[EventHandler] Updated current model: ${this._currentModel}`);
         break;
       case "removeExtensionData":
         log.info(`[EventHandler] Removing extension data`);
@@ -173,6 +174,68 @@ export class VSCodeEventHandler {
     }
   }
 
+  async refreshModelsAndAssistants() {
+    try {
+      if (!this.openaiClient) {
+        log.info("[EventHandler] OpenAI client not initialized");
+        return;
+      }
+
+      let assistants;
+      try {
+        log.info(`[OpenAI Client] Fetching assistants list`);
+        const assistantsResponse =
+          await this.openaiClient.beta.assistants.list();
+        log.info(
+          `[OpenAI Client] Retrieved ${assistantsResponse.data.length} assistants`
+        );
+        assistants = assistantsResponse.data;
+      } catch (error) {
+        log.error("[OpenAI Client] Failed to fetch assistants:", error);
+        this.sendMessageToWebview("openAIClient-Error", {
+          message: "Failed to fetch assistants list.",
+        });
+        return;
+      }
+
+      let gptModels;
+      try {
+        log.info(`[OpenAI Client] Fetching models list`);
+        const modelsResponse = await this.openaiClient.models.list();
+        gptModels = modelsResponse.data.filter((model) =>
+          model.id.startsWith("gpt-")
+        );
+        log.info(`[OpenAI Client] Found ${gptModels.length} GPT models`);
+      } catch (error) {
+        log.error("[OpenAI Client] Failed to fetch models:", error);
+        this.sendMessageToWebview("openAIClient-Error", {
+          message: "Failed to fetch models list.",
+        });
+        return;
+      }
+
+      log.info(`[OpenAI Client] Sending lists to webview`);
+      if (this.webviewView) {
+        this.webviewView.webview.postMessage({
+          command: "updateLists",
+          assistants: assistants,
+          models: gptModels,
+        });
+      }
+
+      log.info(
+        `[EventHandler] Retrieved ${gptModels.length} models and ${assistants.length} assistants`
+      );
+    } catch (error) {
+      log.error(
+        "[EventHandler] Error refreshing models and assistants:",
+        error
+      );
+      this.sendMessageToWebview("refresh-Error", {
+        message: "Failed to refresh models and assistants",
+      });
+    }
+  }
   // Getters for the states
   public getCurrentAssistant(): string | undefined {
     return this._currentAssistant;
@@ -189,9 +252,7 @@ export class VSCodeEventHandler {
     this.sendMessageToWebview("openAIClient-Connecting", {});
     const apiKey = await this.accountManager.getApiKey(accountId);
     if (!apiKey) {
-      log.info(
-        `[OpenAI Client] No API key found for account ID: ${accountId}`
-      );
+      log.info(`[OpenAI Client] No API key found for account ID: ${accountId}`);
       this.sendMessageToWebview("openAIClient-Error", {});
       return;
     }
@@ -292,9 +353,7 @@ export class VSCodeEventHandler {
     );
 
     try {
-      log.info(
-        `[Chat] Getting conversation for ID: ${payload.conversationId}`
-      );
+      log.info(`[Chat] Getting conversation for ID: ${payload.conversationId}`);
 
       log.info(`[Chat] Creating user message`);
       const userMessage: Message = {
@@ -429,11 +488,10 @@ export class VSCodeEventHandler {
           // Create and add system error message
           const systemErrorMessage: Message = {
             id: crypto.randomUUID(),
-            content: `Error: ${
-              error instanceof Error
+            content: `Error: ${error instanceof Error
                 ? error.message
                 : "Failed to process chat message"
-            }`,
+              }`,
             sender: "system",
             timestamp: new Date().toISOString(),
           };
@@ -456,11 +514,10 @@ export class VSCodeEventHandler {
       // Create and add system error message
       const systemErrorMessage: Message = {
         id: crypto.randomUUID(),
-        content: `Error: ${
-          error instanceof Error
+        content: `Error: ${error instanceof Error
             ? error.message
             : "Failed to process chat message"
-        }`,
+          }`,
         sender: "system",
         timestamp: new Date().toISOString(),
       };

@@ -33,7 +33,6 @@ interface ChatWindowProps {
   messages: Message[];
   isAssistantTyping?: boolean;
   autoScroll?: boolean;
-  handleCancelRun: () => void;
 }
 
 const processMessageContent = (content: string): string => {
@@ -50,7 +49,6 @@ export function ChatWindow({
   messages = [],
   isAssistantTyping,
   autoScroll = true,
-  handleCancelRun,
 }: ChatWindowProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -296,19 +294,13 @@ export function ChatWindow({
           )}
         </div>
         {isAssistantTyping && (
-          <div className="text-muted-foreground mt-2">
+          <div className="text-muted-foreground ml-4 mt-2">
             Assistant is typing...
-            <button
-              className="ml-2 text-primary"
-              onClick={() => handleCancelRun()}
-            >
-              Cancel
-            </button>
           </div>
         )}
         <div ref={chatEndRef} />
       </div>
-      <div className="relative">
+      <div className="relative right-2">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

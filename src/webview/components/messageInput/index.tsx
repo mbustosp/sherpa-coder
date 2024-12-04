@@ -1,6 +1,11 @@
 import * as React from "react";
 import { Button } from "@/webview/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/webview/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/webview/components/ui/tabs";
 import {
   MessageSquare,
   Settings,
@@ -11,6 +16,7 @@ import {
   Paperclip,
   File,
   FolderTree,
+  RefreshCw
 } from "lucide-react";
 import { cn } from "@/webview/lib/cn";
 import {
@@ -32,7 +38,12 @@ import {
 import { Textarea } from "@/webview/components/ui/textarea";
 import { ScrollArea, ScrollBar } from "@/webview/components/ui/scroll-area";
 import { Badge } from "@/webview/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/webview/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/webview/components/ui/tooltip";
 import { Assistant, ContextItem, Model } from "src/types";
 
 interface MessageInputProps {
@@ -47,6 +58,9 @@ interface MessageInputProps {
   isAssistantTyping?: boolean;
   files: string[];
   requestWorkspaceFiles: () => void;
+  refreshModelsAndAssistants: () => void;
+  loadingModelsAndAssistants: boolean;
+  handleCancelRun: () => void;
 }
 
 export function MessageInput({
@@ -58,14 +72,20 @@ export function MessageInput({
   selectedModel,
   setSelectedModel,
   disabled = false,
+  isAssistantTyping = false,
   requestWorkspaceFiles,
   files = [],
+  refreshModelsAndAssistants,
+  loadingModelsAndAssistants = false,
+  handleCancelRun
 }: MessageInputProps) {
   const [message, setMessage] = React.useState("");
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = React.useState(false);
   const [isContextDialogOpen, setIsContextDialogOpen] = React.useState(false);
-  const [tempSelectedAssistant, setTempSelectedAssistant] = React.useState(selectedAssistant);
-  const [tempSelectedModel, setTempSelectedModel] = React.useState(selectedModel);
+  const [tempSelectedAssistant, setTempSelectedAssistant] =
+    React.useState(selectedAssistant);
+  const [tempSelectedModel, setTempSelectedModel] =
+    React.useState(selectedModel);
   const [contextItems, setContextItems] = React.useState<ContextItem[]>([]);
   const [newContextItem, setNewContextItem] = React.useState("");
   const [filteredFiles, setFilteredFiles] = React.useState<string[]>(files);
@@ -134,13 +154,28 @@ export function MessageInput({
     setNewContextItem(value);
     setFilteredFiles(
       value.trim()
-        ? files.filter((file) => file.toLowerCase().includes(value.toLowerCase()))
+        ? files.filter((file) =>
+            file.toLowerCase().includes(value.toLowerCase())
+          )
         : files
     );
   };
 
-  const selectedModelDetails = models.find((m) => m.id === selectedModel) || models[0];
-  const selectedAssistantDetails = assistants.find((a) => a.id === selectedAssistant) || assistants[0];
+  const selectedModelDetails =
+    models.length > 0
+      ? models.find((m) => m.id === selectedModel) || models[0]
+      : { id: "", name: "⚠️ No models available" };
+  const selectedAssistantDetails =
+    assistants.length > 0
+      ? assistants.find((a) => a.id === selectedAssistant) || assistants[0]
+      : { id: "", name: "⚠️ No assistants available" };
+
+  const isSendDisabled =
+    disabled ||
+    !message.trim() ||
+    !selectedModel ||
+    !selectedAssistant ||
+    isAssistantTyping;
 
   return (
     <div className="flex flex-col border rounded-lg bg-background shadow-sm">
@@ -148,7 +183,10 @@ export function MessageInput({
         <div className="flex items-center space-x-2">
           <span>Model: {selectedModelDetails.name}</span>
           <span>•</span>
-          <span>Assistant: {selectedAssistantDetails.name}</span>
+          <span>
+            Assistant:{" "}
+            {selectedAssistantDetails.name || `${selectedAssistantDetails.id}`}
+          </span>
         </div>
       </div>
       <div className="relative">
@@ -184,17 +222,29 @@ export function MessageInput({
                 </Badge>
               ))}
             </div>
-            <ScrollBar orientation="horizontal"/>
+            <ScrollBar orientation="horizontal" />
           </ScrollArea>
         )}
       </div>
       <div className="flex items-center justify-between p-2 border-t flex-wrap gap-4">
         <div className="flex flex-wrap gap-2">
-          <Dialog open={isSettingsDialogOpen} onOpenChange={setIsSettingsDialogOpen}>
+          <Dialog
+            open={isSettingsDialogOpen}
+            onOpenChange={setIsSettingsDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" className="text-xs">
-                <Settings className="w-3 h-3 mr-2" />
-                Settings
+                {selectedAssistantDetails.id === "" ? (
+                  <>
+                    <Settings className="w-3 h-3 mr-2 text-yellow-500 animate-bounce" />
+                    Configure Me!
+                  </>
+                ) : (
+                  <>
+                    <Settings className="w-3 h-3 mr-2" />
+                    Settings
+                  </>
+                )}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
@@ -204,45 +254,124 @@ export function MessageInput({
               <Tabs defaultValue="model" className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="model">Model</TabsTrigger>
-                  <TabsTrigger value="assistant">Assistant</TabsTrigger>
+                  <TabsTrigger value="assistant">
+                    {selectedAssistantDetails.id === "" ? (
+                      <span className="flex items-center">
+                        Assistant{" "}
+                        <span className="text-yellow-500 ml-1">⚠️</span>
+                      </span>
+                    ) : (
+                      "Assistant"
+                    )}
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="model">
-                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                    {models.map((model) => (
-                      <div
-                        key={model.id}
+                  <div className="flex justify-end mb-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshModelsAndAssistants}
+                      disabled={loadingModelsAndAssistants}
+                    >
+                      <RefreshCw
                         className={cn(
-                          "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
-                          tempSelectedModel === model.id && "bg-accent"
+                          "w-3 h-3 mr-1",
+                          loadingModelsAndAssistants && "animate-spin"
                         )}
-                        onClick={() => setTempSelectedModel(model.id)}
-                      >
-                        <Sparkles className="w-4 h-4" />
-                        <span>{model.name}</span>
+                      />
+                      Refresh
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    {loadingModelsAndAssistants ? (
+                      <div className="flex items-center justify-center h-full">
+                        <span className="text-sm text-muted-foreground">
+                          Loading models...
+                        </span>
                       </div>
-                    ))}
+                    ) : (
+                      models.map((model) => (
+                        <div
+                          key={model.id}
+                          className={cn(
+                            "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
+                            tempSelectedModel === model.id && "bg-accent"
+                          )}
+                          onClick={() => setTempSelectedModel(model.id)}
+                        >
+                          <Sparkles className="w-4 h-4" />
+                          <span>{model.name}</span>
+                        </div>
+                      ))
+                    )}
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="assistant">
-                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                    {assistants.map((assistant) => (
-                      <div
-                        key={assistant.id}
+                  <div className="flex justify-end mb-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshModelsAndAssistants}
+                      disabled={loadingModelsAndAssistants}
+                    >
+                      <RefreshCw
                         className={cn(
-                          "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
-                          tempSelectedAssistant === assistant.id && "bg-accent"
+                          "w-3 h-3 mr-1",
+                          loadingModelsAndAssistants && "animate-spin"
                         )}
-                        onClick={() => setTempSelectedAssistant(assistant.id)}
-                      >
-                        <Bot className="w-4 h-4" />
-                        <span>{assistant.name}</span>
+                      />
+                      Refresh
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    {loadingModelsAndAssistants ? (
+                      <div className="flex items-center justify-center h-full">
+                        <span className="text-sm text-muted-foreground">
+                          Loading assistants...
+                        </span>
                       </div>
-                    ))}
+                    ) : assistants.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full p-4 text-center text-muted-foreground">
+                        <p>No assistants found</p>
+                        <p className="text-sm mt-2">
+                          Create your first assistant in the OpenAI Playground
+                        </p>
+                        <a
+                          href="https://platform.openai.com/playground/assistants"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline mt-2"
+                        >
+                          Go to OpenAI Playground →
+                        </a>
+                      </div>
+                    ) : (
+                      assistants.map((assistant) => (
+                        <div
+                          key={assistant.id}
+                          className={cn(
+                            "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
+                            tempSelectedAssistant === assistant.id &&
+                              "bg-accent"
+                          )}
+                          onClick={() => setTempSelectedAssistant(assistant.id)}
+                        >
+                          <Bot className="w-4 h-4" />
+                          <span>
+                            {assistant.name ||
+                              `No name given (id: ${assistant.id})`}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </ScrollArea>
                 </TabsContent>
               </Tabs>
               <DialogFooter>
-                <Button variant="outline" onClick={() => handleSettingsDialogClose(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => handleSettingsDialogClose(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={() => handleSettingsDialogClose(true)}>
@@ -270,15 +399,26 @@ export function MessageInput({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Button
-          onClick={handleSendMessage}
-          disabled={disabled || !message.trim()}
-          size="sm"
-          className={cn(!message.trim() && "opacity-50")}
-        >
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Send
-        </Button>
+        {isAssistantTyping ? (
+          <Button
+            onClick={handleCancelRun}
+            size="sm"
+            className="bg-destructive hover:bg-destructive/90"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Cancel
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSendMessage}
+            disabled={isSendDisabled}
+            size="sm"
+            className={cn(!message.trim() && "opacity-50")}
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Send
+          </Button>
+        )}
       </div>
       <Dialog open={isContextDialogOpen} onOpenChange={setIsContextDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -286,8 +426,14 @@ export function MessageInput({
             <DialogTitle>Add Context</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mb-4">
-            Selected files will be uploaded to OpenAI and used to provide more context to the assistant's answer.
-            <a href="https://platform.openai.com/docs/guides/file-uploads" className="ml-1" target="_blank" rel="noopener noreferrer">
+            Selected files will be uploaded to OpenAI and used to provide more
+            context to the assistant's answer.
+            <a
+              href="https://platform.openai.com/docs/guides/file-uploads"
+              className="ml-1"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Learn more
             </a>
           </p>

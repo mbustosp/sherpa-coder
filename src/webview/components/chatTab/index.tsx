@@ -24,6 +24,8 @@ export function ChatTab() {
     handleCancelRun,
     workspaceFiles,
     requestWorkspaceFiles,
+    refreshModelsAndAssistants,
+    loadingModelsAndAssistants
   } = useGlobalContext();
 
   return (
@@ -41,7 +43,6 @@ export function ChatTab() {
           <ChatWindow
             messages={currentConversation?.messages || []}
             isAssistantTyping={isAssistantTyping}
-            handleCancelRun={handleCancelRun}
           />
           <MessageInput
             sendMessage={handleSendChatMessage}
@@ -54,6 +55,10 @@ export function ChatTab() {
             disabled={!isClientInitialized || !currentConversation}
             requestWorkspaceFiles={requestWorkspaceFiles}
             files={workspaceFiles}
+            refreshModelsAndAssistants={refreshModelsAndAssistants}
+            loadingModelsAndAssistants={loadingModelsAndAssistants}
+            isAssistantTyping={isAssistantTyping}
+            handleCancelRun={handleCancelRun}
           />
         </>
       ) : (

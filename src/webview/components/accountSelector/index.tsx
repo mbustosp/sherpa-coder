@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { Account } from "../../../types";
 import React from "react";
 import { Button } from "@/webview/components/ui/button";
@@ -28,7 +28,7 @@ export function AccountSelector({
   const hasAccounts = accounts.length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4">
       <div>
         <h4 className="text-sm font-semibold mb-2">Select Existing Account</h4>
         {hasAccounts ? (
@@ -54,14 +54,22 @@ export function AccountSelector({
           </div>
         )}
       </div>
-      <Button
-        variant="secondary"
-        disabled={!selectedAccountId || disabled}
-        onClick={() => selectedAccountId && onDeleteAccount(selectedAccountId)}
-      >
-        <Trash2 className="w-4 h-4 mr-2" />
-        Delete Selected Account
-      </Button>
+      <div className="grid gap-2">
+        {selectedAccountId && (
+          <>
+            <Button
+              variant="destructive"
+              disabled={!selectedAccountId || disabled}
+              onClick={() =>
+                selectedAccountId && onDeleteAccount(selectedAccountId)
+              }
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Selected Account
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

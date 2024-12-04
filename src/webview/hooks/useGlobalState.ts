@@ -23,15 +23,24 @@ export function useGlobalState() {
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isAssistantTyping, setIsAssistantTyping] = React.useState(false);
+  const [loadingModelsAndAssistants, setLoadingModelsAndAssistants] =
+    React.useState(false);
   const [openAIClientStatus, setOpenAIClientStatus] = React.useState<{
-    status: 'idle' | 'connecting' | 'connected' | 'error' | 'retrievingAssistants' | 'retrievingModels' | 'done';
+    status:
+      | "idle"
+      | "connecting"
+      | "connected"
+      | "error"
+      | "retrievingAssistants"
+      | "retrievingModels"
+      | "done";
     error?: string;
     assistantsCount?: number;
     modelsCount?: number;
-  }>({ status: 'idle' });
+  }>({ status: "idle" });
 
   const dismissOpenAIClientStatus = () => {
-    setOpenAIClientStatus({ status: 'idle' });
+    setOpenAIClientStatus({ status: "idle" });
   };
 
   // Add memoization for frequently accessed data
@@ -40,15 +49,14 @@ export function useGlobalState() {
     [accounts, selectedAccountId]
   );
 
-
-React.useEffect(() => {
-  if (selectedAccountId) {
-    setIsLoading(true);
-    setError(null);
-    setCurrentConversation(null);
-    sendMessage("selectAccount", { accountId: selectedAccountId });
-  }
-}, [selectedAccountId, sendMessage]);
+  React.useEffect(() => {
+    if (selectedAccountId) {
+      setIsLoading(true);
+      setError(null);
+      setCurrentConversation(null);
+      sendMessage("selectAccount", { accountId: selectedAccountId });
+    }
+  }, [selectedAccountId, sendMessage]);
 
   React.useEffect(() => {
     sendMessage("getAccounts", {});
@@ -81,13 +89,39 @@ React.useEffect(() => {
           setModels(
             message.models?.map((model) => ({ ...model, name: model.id }))
           );
+
+          // Check if current assistant exists in new list
+          if (message.assistants && selectedAssistant) {
+            const assistantExists = message.assistants.some(
+              (a) => a.id === selectedAssistant
+            );
+            if (!assistantExists) {
+              setSelectedAssistant("");
+            }
+          }
+
+          // Check if current model exists in new list
+          if (message.models && selectedModel) {
+            const modelExists = message.models.some(
+              (m) => m.id === selectedModel
+            );
+            if (!modelExists) {
+              setSelectedModel("");
+            }
+          }
+
           setIsLoading(false);
+          setLoadingModelsAndAssistants(false);
           break;
         case "error":
           log.debug("Error received:", message.message);
           setError(message.message);
           setIsLoading(false);
-          setOpenAIClientStatus(prev => ({ ...prev, status: 'error', error: message.message }));
+          setOpenAIClientStatus((prev) => ({
+            ...prev,
+            status: "error",
+            error: message.message,
+          }));
           break;
         case "updateTypingStatus":
           setIsAssistantTyping(message.isTyping);
@@ -95,28 +129,39 @@ React.useEffect(() => {
           break;
         case "openAIClient-Connecting":
           setIsLoading(true);
-          setOpenAIClientStatus({ status: 'connecting' });
+          setOpenAIClientStatus({ status: "connecting" });
           break;
         case "openAIClient-Connected":
           log.debug("OpenAI client connected");
-          setOpenAIClientStatus({ status: 'connected' });
+          setOpenAIClientStatus({ status: "connected" });
           break;
         case "openAIClient-Error":
           setError(message.message || "Failed to initialize OpenAI client");
           setIsLoading(false);
-          setOpenAIClientStatus({ status: 'error', error: message.message || "Failed to initialize OpenAI client" });
+          setOpenAIClientStatus({
+            status: "error",
+            error: message.message || "Failed to initialize OpenAI client",
+          });
           break;
         case "assistants-Retrieved":
           log.debug(`Retrieved ${message.count} assistants`);
-          setOpenAIClientStatus(prev => ({ ...prev, status: 'retrievingAssistants', assistantsCount: message.count }));
+          setOpenAIClientStatus((prev) => ({
+            ...prev,
+            status: "retrievingAssistants",
+            assistantsCount: message.count,
+          }));
           break;
         case "models-Retrieved":
           log.debug(`Retrieved ${message.count} models`);
-          setOpenAIClientStatus(prev => ({ ...prev, status: 'retrievingModels', modelsCount: message.count }));
+          setOpenAIClientStatus((prev) => ({
+            ...prev,
+            status: "retrievingModels",
+            modelsCount: message.count,
+          }));
           break;
         case "openAIClient-Done":
           setIsLoading(false);
-          setOpenAIClientStatus(prev => ({ ...prev, status: 'done' }));
+          setOpenAIClientStatus((prev) => ({ ...prev, status: "done" }));
           break;
         case "updateMessage":
           setCurrentConversation((prev) => {
@@ -177,12 +222,17 @@ React.useEffect(() => {
   React.useEffect(() => {
     if (assistants.length > 0) {
       setSelectedAssistant(assistants[0].id);
+    } else {
+      setSelectedAssistant("");
     }
+    
   }, [assistants]);
 
   React.useEffect(() => {
     if (models.length > 0) {
       setSelectedModel(models[0].id);
+    } else {
+      setSelectedModel("");
     }
   }, [models]);
 
@@ -204,6 +254,11 @@ React.useEffect(() => {
 
   const isClientInitialized =
     models?.length && selectedAccountId !== null && !isLoading;
+
+  const refreshModelsAndAssistants = () => {
+    setLoadingModelsAndAssistants(true);
+    sendMessage("refreshModelsAndAssistants", {});
+  };
 
   const createNewConversation = (conversationTitle: string) => {
     if (!selectedAccount) return;
@@ -404,6 +459,8 @@ React.useEffect(() => {
     handleCancelRun,
     requestWorkspaceFiles,
     workspaceFiles,
-    dismissOpenAIClientStatus
+    dismissOpenAIClientStatus,
+    refreshModelsAndAssistants,
+    loadingModelsAndAssistants,
   };
 }
