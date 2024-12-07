@@ -25,7 +25,8 @@ export function ChatTab() {
     workspaceFiles,
     requestWorkspaceFiles,
     refreshModelsAndAssistants,
-    loadingModelsAndAssistants
+    loadingModelsAndAssistants,
+    openFile,
   } = useGlobalContext();
 
   return (
@@ -43,6 +44,7 @@ export function ChatTab() {
           <ChatWindow
             messages={currentConversation?.messages || []}
             isAssistantTyping={isAssistantTyping}
+            onFileClick={openFile}
           />
           <MessageInput
             sendMessage={handleSendChatMessage}

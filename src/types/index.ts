@@ -21,6 +21,9 @@ export interface Account {
     content: string;
     sender: 'user' | 'assistant' | 'system';
     timestamp: string;
+    attachments?: { url: string, path: string, fileName: string }[];
+    modelName: string;
+    assistantName: string;
   }
   
   export interface Assistant {

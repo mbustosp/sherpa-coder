@@ -16,7 +16,8 @@ import {
   Paperclip,
   File,
   FolderTree,
-  RefreshCw
+  RefreshCw,
+  Check
 } from "lucide-react";
 import { cn } from "@/webview/lib/cn";
 import {
@@ -294,15 +295,16 @@ export function MessageInput({
                         <div
                           key={model.id}
                           className={cn(
-                            "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
-                            tempSelectedModel === model.id && "bg-accent"
+                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
                           )}
                           onClick={() => setTempSelectedModel(model.id)}
                         >
                           <Sparkles className="w-4 h-4" />
                           <span>{model.name}</span>
-                        </div>
-                      ))
+                          {tempSelectedModel === model.id && (
+                            <Check className="w-4 h-4 ml-auto" />
+                          )}
+                        </div>                      ))
                     )}
                   </ScrollArea>
                 </TabsContent>
@@ -350,9 +352,7 @@ export function MessageInput({
                         <div
                           key={assistant.id}
                           className={cn(
-                            "flex items-center space-x-2 rounded-lg p-2 hover:bg-accent cursor-pointer",
-                            tempSelectedAssistant === assistant.id &&
-                              "bg-accent"
+                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
                           )}
                           onClick={() => setTempSelectedAssistant(assistant.id)}
                         >
@@ -361,8 +361,10 @@ export function MessageInput({
                             {assistant.name ||
                               `No name given (id: ${assistant.id})`}
                           </span>
-                        </div>
-                      ))
+                          {tempSelectedAssistant === assistant.id && (
+                            <Check className="w-4 h-4 ml-auto" />
+                          )}
+                        </div>                      ))
                     )}
                   </ScrollArea>
                 </TabsContent>

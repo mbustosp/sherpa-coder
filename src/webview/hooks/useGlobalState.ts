@@ -3,8 +3,10 @@ import { Account, Conversation, ContextItem } from "@/types";
 import log from "@/utils/logger";
 import * as React from "react";
 import ReactDOM from "react-dom";
+import { useToast } from "../webview/hooks/use-toast";
 
 export function useGlobalState() {
+  const { toast } = useToast();
   const [workspaceFiles, setWorkspaceFiles] = React.useState<string[]>([]);
 
   const [accounts, setAccounts] = React.useState<Account[]>([]);
@@ -113,8 +115,21 @@ export function useGlobalState() {
           setIsLoading(false);
           setLoadingModelsAndAssistants(false);
           break;
-        case "error":
+        case "refresh-Error":
           log.debug("Error received:", message.message);
+          toast({
+            title: "There was an error",
+            description: message.message,
+            variant: "destructive"
+          });
+          setLoadingModelsAndAssistants(false);
+          break;
+        case "error":
+          toast({
+            title: "There was an error",
+            description: message.message,
+            variant: "destructive"
+          });
           setError(message.message);
           setIsLoading(false);
           setOpenAIClientStatus((prev) => ({
@@ -315,6 +330,12 @@ export function useGlobalState() {
     [selectedAccountId]
   );
 
+  const openFile = (filePath: string) => {
+    sendMessage("openFile", {
+      filePath,
+    });
+  };
+
   const handleDeleteConversation = (conversationId: string) => {
     if (!selectedAccount) return;
 
@@ -409,12 +430,16 @@ export function useGlobalState() {
       )
       .map((item) => item.name);
 
+    const assistantName = assistants.find(a => a.id === selectedAssistant)?.name
+
     sendMessage("sendChatMessage", {
       accountId: selectedAccount.id,
       conversationId: currentConversation.id,
       message,
-      assistant: selectedAssistant,
-      model: selectedModel,
+      assistant: {
+        id: selectedAssistant,
+        name: assistantName,
+      },
       fileContexts,
     });
   };
@@ -462,5 +487,6 @@ export function useGlobalState() {
     dismissOpenAIClientStatus,
     refreshModelsAndAssistants,
     loadingModelsAndAssistants,
+    openFile,
   };
 }

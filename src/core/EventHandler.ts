@@ -135,6 +135,16 @@ export class VSCodeEventHandler {
       case "getAccounts":
         this.getAccounts();
         break;
+      case "openFile":
+        const filePath = vscode.Uri.file(
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath +
+            "/" +
+            message.payload.filePath
+        );
+        vscode.workspace.openTextDocument(filePath).then((doc) => {
+          vscode.window.showTextDocument(doc);
+        });
+        break;
       case "getApiKey":
         await this.initializeOpenAIClient(message.payload.accountId);
         break;
@@ -181,38 +191,23 @@ export class VSCodeEventHandler {
         return;
       }
 
-      let assistants;
-      try {
-        log.info(`[OpenAI Client] Fetching assistants list`);
-        const assistantsResponse =
-          await this.openaiClient.beta.assistants.list();
-        log.info(
-          `[OpenAI Client] Retrieved ${assistantsResponse.data.length} assistants`
-        );
-        assistants = assistantsResponse.data;
-      } catch (error) {
-        log.error("[OpenAI Client] Failed to fetch assistants:", error);
-        this.sendMessageToWebview("openAIClient-Error", {
-          message: "Failed to fetch assistants list.",
-        });
-        return;
-      }
+      log.info(`[OpenAI Client] Fetching assistants list`);
+      const assistantsResponse = await this.openaiClient.beta.assistants.list();
+      log.info(
+        `[OpenAI Client] Retrieved ${assistantsResponse.data.length} assistants`
+      );
+      assistants = assistantsResponse.data;
 
       let gptModels;
-      try {
-        log.info(`[OpenAI Client] Fetching models list`);
-        const modelsResponse = await this.openaiClient.models.list();
-        gptModels = modelsResponse.data.filter((model) =>
-          model.id.startsWith("gpt-")
-        );
-        log.info(`[OpenAI Client] Found ${gptModels.length} GPT models`);
-      } catch (error) {
-        log.error("[OpenAI Client] Failed to fetch models:", error);
-        this.sendMessageToWebview("openAIClient-Error", {
-          message: "Failed to fetch models list.",
-        });
-        return;
-      }
+
+      log.info(`[OpenAI Client] Fetching models list`);
+      const modelsResponse = await this.openaiClient.models.list();
+      gptModels = modelsResponse.data.filter((model) =>
+        model.id.startsWith("gpt-")
+      );
+      log.info(`[OpenAI Client] Found ${gptModels.length} GPT models`);
+
+      throw new Error("Bang!");
 
       log.info(`[OpenAI Client] Sending lists to webview`);
       if (this.webviewView) {
@@ -272,6 +267,7 @@ export class VSCodeEventHandler {
     }
 
     let assistants;
+
     try {
       log.info(`[OpenAI Client] Fetching assistants list`);
       const assistantsResponse = await this.openaiClient.beta.assistants.list();
@@ -332,7 +328,10 @@ export class VSCodeEventHandler {
     accountId: string;
     conversationId: string;
     message: string;
-    assistant: string;
+    assistant: {
+      id: string;
+      name: string;
+    };
     model: string;
     fileContexts: string[];
   }): Promise<void> {
@@ -361,6 +360,13 @@ export class VSCodeEventHandler {
         content: payload.message,
         sender: "user",
         timestamp: new Date().toISOString(),
+        modelName: payload.model,
+        assistantName: payload.assistant.name,
+        attachments: payload.fileContexts.map((filePath) => ({
+          url: "",
+          path: filePath,
+          fileName: filePath.split("/").pop() || filePath,
+        })),
       };
       conversation.messages = [...conversation.messages, userMessage];
       conversation.lastMessage = userMessage.content;
@@ -433,6 +439,8 @@ export class VSCodeEventHandler {
         content: "",
         sender: "assistant",
         timestamp: new Date().toISOString(),
+        modelName: payload.model,
+        assistantName: payload.assistant.name,
       };
 
       log.info(
@@ -441,7 +449,7 @@ export class VSCodeEventHandler {
       // Start streaming run
       const run = await this.openaiClient.beta.threads.runs
         .stream(conversation.threadId, {
-          assistant_id: payload.assistant,
+          assistant_id: payload.assistant.id,
           model: payload.model,
         })
         .on("textCreated", () => {
@@ -488,12 +496,16 @@ export class VSCodeEventHandler {
           // Create and add system error message
           const systemErrorMessage: Message = {
             id: crypto.randomUUID(),
-            content: `Error: ${error instanceof Error
+            content: `Error: ${
+              error instanceof Error
                 ? error.message
                 : "Failed to process chat message"
-              }`,
+            }`,
             sender: "system",
             timestamp: new Date().toISOString(),
+
+            modelName: payload.model,
+            assistantName: payload.assistant.name,
           };
 
           // Add the error message to conversation
@@ -514,12 +526,15 @@ export class VSCodeEventHandler {
       // Create and add system error message
       const systemErrorMessage: Message = {
         id: crypto.randomUUID(),
-        content: `Error: ${error instanceof Error
+        content: `Error: ${
+          error instanceof Error
             ? error.message
             : "Failed to process chat message"
-          }`,
+        }`,
         sender: "system",
         timestamp: new Date().toISOString(),
+        modelName: payload.model,
+        assistantName: payload.assistant.name,
       };
 
       // Add the error message to conversation
