@@ -57,7 +57,7 @@ export function ConversationSelector({
       <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={disabled} className="min-w-0">
         <Button variant="outline" className="w-full justify-between" disabled={disabled}>
-          <div className="text-sm text-muted-foreground break-words overflow-x-hidden">
+          <div className="text-sm break-words overflow-x-hidden">
             {currentConversation?.title || "Select Conversation"}
           </div>
           <ChevronDown className="ml-2 h-4 w-4" />
@@ -91,10 +91,10 @@ export function ConversationSelector({
                 <div className="w-full flex justify-between items-start">
                   <div className="flex-grow pr-2">
                     <div className="font-medium">{conversation.title}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-opacity-90">
                       {conversation.date} • {conversation.messages?.length || 0} messages
                     </div>
-                    <div className="text-sm text-muted-foreground break-words">
+                    <div className="text-sm text-opacity-90 break-words">
                       {conversation.messages[0]?.content?.slice(0, 100) || ''}
                     </div>
                   </div>

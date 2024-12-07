@@ -103,7 +103,7 @@ export function ChatWindow({
   };
 
   return (
-    <div className="border rounded-md py-2 flex flex-col flex-auto overflow-y-hidden">
+    <div className="rounded-md py-2 flex flex-col flex-auto overflow-y-hidden">
       {messages.length > windowSize && (
         <div className="flex justify-between items-center px-4 mb-2">
           <Button
@@ -179,17 +179,13 @@ export function ChatWindow({
                 >
                   <div
                     className={`rounded-lg p-3 ${
-                      message.sender === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : message.sender === "system"
-                        ? "bg-yellow-100 dark:bg-yellow-900 border-2 border-yellow-400"
-                        : "bg-muted"
+                       "bg-secondary text-secondary-foreground"
                     }`}
                   >
                     {message.sender === "system" && (
                       <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-                        <span className="font-medium text-yellow-600 dark:text-yellow-400">System Message</span>
+                        <AlertTriangle className="h-5 w-5" />
+                        <span className="font-medium">System Message</span>
                       </div>
                     )}
                     <div className="relative">

@@ -178,8 +178,8 @@ export function MessageInput({
     isAssistantTyping;
 
   return (
-    <div className="flex flex-col border rounded-lg bg-background shadow-sm">
-      <div className="flex items-center justify-between px-3 py-2 bg-muted/50 text-xs text-muted-foreground">
+    <div className="flex flex-col rounded-lg bg-background shadow-sm">
+      <div className="flex items-center justify-between px-3 py-2 bg-secondary text-xs text-secondary-foreground">
         <div className="flex items-center space-x-2">
           <span>Model: {selectedModelDetails.name}</span>
           <span>•</span>
@@ -226,7 +226,7 @@ export function MessageInput({
           </ScrollArea>
         )}
       </div>
-      <div className="flex items-center justify-between p-2 border-t flex-wrap gap-4">
+      <div className="flex items-center justify-between p-2 flex-wrap gap-4">
         <div className="flex flex-wrap gap-2">
           <Dialog
             open={isSettingsDialogOpen}
@@ -367,7 +367,7 @@ export function MessageInput({
                   </ScrollArea>
                 </TabsContent>
               </Tabs>
-              <DialogFooter>
+              <DialogFooter className="gap-2">
                 <Button
                   variant="outline"
                   onClick={() => handleSettingsDialogClose(false)}

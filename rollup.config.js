@@ -5,10 +5,10 @@ import replace from '@rollup/plugin-replace';
 import postcss from "rollup-plugin-postcss";
 import alias from '@rollup/plugin-alias';
 import json from '@rollup/plugin-json';
+import image from '@rollup/plugin-image';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import path from 'path';
-
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,7 +45,7 @@ export default [
             }),
             resolve(),
             commonjs(),
-            json()
+            json(),
         ]
     },    {
         input: 'src/webview/index.tsx',
@@ -82,6 +82,7 @@ export default [
             }),
             commonjs(),
             json(),
+            image()
         ]
     },
     {

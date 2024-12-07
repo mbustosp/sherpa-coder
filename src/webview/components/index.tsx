@@ -38,7 +38,7 @@ export default function Main() {
   }
 
   return (
-    <Card className={`flex flex-col w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none h-screen'}`}>
+    <Card className={`flex flex-col w-full mx-auto transition-all duration-300 ease-in-out fixed inset-0 z-50 m-0 max-w-none rounded-none h-screen border-none`}>
       <Header className="px-6 pt-4 pb-0" />
       <CardContent className="flex grow flex-auto overflow-y-hidden p-4">
         <Tabs defaultValue={isClientInitialized ? "chat" : "account"} className="flex flex-col flex-auto w-full">
@@ -51,7 +51,7 @@ export default function Main() {
             <ChatTab />
           </TabsContent>
           
-          <TabsContent value="account" className="flex flex-col">
+          <TabsContent value="account" className="flex flex-col overflow-y-auto">
             <AccountTab />
           </TabsContent>
         </Tabs>
