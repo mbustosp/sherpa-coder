@@ -17,7 +17,7 @@ import {
   File,
   FolderTree,
   RefreshCw,
-  Check
+  Check,
 } from "lucide-react";
 import { cn } from "@/webview/lib/cn";
 import {
@@ -78,18 +78,17 @@ export function MessageInput({
   files = [],
   refreshModelsAndAssistants,
   loadingModelsAndAssistants = false,
-  handleCancelRun
+  handleCancelRun,
 }: MessageInputProps) {
   const [message, setMessage] = React.useState("");
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = React.useState(false);
   const [isContextDialogOpen, setIsContextDialogOpen] = React.useState(false);
-  const [tempSelectedAssistant, setTempSelectedAssistant] =
-    React.useState(selectedAssistant);
-  const [tempSelectedModel, setTempSelectedModel] =
-    React.useState(selectedModel);
+  const [tempSelectedAssistant, setTempSelectedAssistant] = React.useState(selectedAssistant);
+  const [tempSelectedModel, setTempSelectedModel] = React.useState(selectedModel);
   const [contextItems, setContextItems] = React.useState<ContextItem[]>([]);
   const [newContextItem, setNewContextItem] = React.useState("");
   const [filteredFiles, setFilteredFiles] = React.useState<string[]>(files);
+  const [selectedFiles, setSelectedFiles] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     requestWorkspaceFiles();
@@ -98,6 +97,16 @@ export function MessageInput({
   React.useEffect(() => {
     setFilteredFiles(files);
   }, [files]);
+
+  // Ensure that the `selectedFiles` aligns with current context items when the dialog opens
+  React.useEffect(() => {
+    if (isContextDialogOpen) {
+      const currentSelectedFiles = contextItems
+        .filter((item) => item.type === "file")
+        .map((item) => item.name);
+      setSelectedFiles(currentSelectedFiles);
+    }
+  }, [isContextDialogOpen, contextItems]);
 
   const handleSendMessage = () => {
     if (message.trim()) {
@@ -128,15 +137,31 @@ export function MessageInput({
     setIsSettingsDialogOpen(false);
   };
 
-  const handleAddContext = (file: string) => {
-    const isFileAlreadyAdded = contextItems.some(
-      (item) => item.type === "file" && item.name === file
-    );
+  const toggleFileSelection = (file: string) => {
+    setSelectedFiles((prev) => {
+      if (prev.includes(file)) {
+        return prev.filter((f) => f !== file);
+      }
+      return [...prev, file];
+    });
+  };
 
-    if (!isFileAlreadyAdded) {
-      setContextItems((prev) => [...prev, { type: "file", name: file }]);
-    }
-    setNewContextItem("");
+  const handleSaveFileSelection = () => {
+    setContextItems((prevContextItems) => {
+      const newContextItems = selectedFiles.map((file) => ({
+        type: "file",
+        name: file,
+      }));
+      return [
+        ...prevContextItems.filter(
+          (item) => item.type !== "file" || selectedFiles.includes(item.name)
+        ),
+        ...newContextItems,
+      ];
+    });
+
+    // Close the dialog after saving the selection
+    setIsContextDialogOpen(false);
   };
 
   const handleAddSourceCode = () => {
@@ -160,6 +185,10 @@ export function MessageInput({
           )
         : files
     );
+  };
+
+  const unselectAllFiles = () => {
+    setSelectedFiles([]);
   };
 
   const selectedModelDetails =
@@ -295,7 +324,7 @@ export function MessageInput({
                         <div
                           key={model.id}
                           className={cn(
-                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
                           )}
                           onClick={() => setTempSelectedModel(model.id)}
                         >
@@ -304,7 +333,8 @@ export function MessageInput({
                           {tempSelectedModel === model.id && (
                             <Check className="w-4 h-4 ml-auto" />
                           )}
-                        </div>                      ))
+                        </div>
+                      ))
                     )}
                   </ScrollArea>
                 </TabsContent>
@@ -352,7 +382,7 @@ export function MessageInput({
                         <div
                           key={assistant.id}
                           className={cn(
-                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
                           )}
                           onClick={() => setTempSelectedAssistant(assistant.id)}
                         >
@@ -364,7 +394,8 @@ export function MessageInput({
                           {tempSelectedAssistant === assistant.id && (
                             <Check className="w-4 h-4 ml-auto" />
                           )}
-                        </div>                      ))
+                        </div>
+                      ))
                     )}
                   </ScrollArea>
                 </TabsContent>
@@ -422,10 +453,15 @@ export function MessageInput({
           </Button>
         )}
       </div>
-      <Dialog open={isContextDialogOpen} onOpenChange={setIsContextDialogOpen}>
+      <Dialog
+        open={isContextDialogOpen}
+        onOpenChange={setIsContextDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add Context</DialogTitle>
+            <DialogTitle>
+              Add Context (Selected: {selectedFiles.length})
+            </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground mb-4">
             Selected files will be uploaded to OpenAI and used to provide more
@@ -455,17 +491,28 @@ export function MessageInput({
                   <CommandEmpty>No files found.</CommandEmpty>
                   <CommandGroup heading="Files">
                     {filteredFiles.map((file) => (
-                      <CommandItem
-                        key={file}
-                        onSelect={() => handleAddContext(file)}
-                      >
-                        <File className="mr-2 h-4 w-4" />
-                        <span>{file}</span>
+                      <CommandItem key={file}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedFiles.includes(file)}
+                            onChange={() => toggleFileSelection(file)}
+                            className="mr-2"
+                          />
+                          <File className="mr-2 h-4 w-4" />
+                          <span>{file}</span>
+                        </label>
                       </CommandItem>
                     ))}
                   </CommandGroup>
                 </CommandList>
               </Command>
+              <div className="flex items-center mt-4 space-x-2">
+                <Button onClick={handleSaveFileSelection}>
+                  Save Selection
+                </Button>
+                <Button onClick={unselectAllFiles}>Unselect All</Button>
+              </div>
             </TabsContent>
             <TabsContent value="sourceCode">
               <div className="flex flex-col items-center justify-center p-4 space-y-4">
