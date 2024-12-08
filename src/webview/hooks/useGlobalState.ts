@@ -3,10 +3,8 @@ import { Account, Conversation, ContextItem } from "@/types";
 import log from "@/utils/logger";
 import * as React from "react";
 import ReactDOM from "react-dom";
-import { useToast } from "../webview/hooks/use-toast";
 
 export function useGlobalState() {
-  const { toast } = useToast();
   const [workspaceFiles, setWorkspaceFiles] = React.useState<string[]>([]);
 
   const [accounts, setAccounts] = React.useState<Account[]>([]);
@@ -50,6 +48,10 @@ export function useGlobalState() {
     () => accounts.find((account) => account.id === selectedAccountId),
     [accounts, selectedAccountId]
   );
+
+  const displayToastMessage = (message: string, type: 'success' | 'warning' | 'error' = 'success') => {
+    sendMessage("showToast", { message, toastType: type});
+  }
 
   React.useEffect(() => {
     if (selectedAccountId) {
@@ -117,19 +119,11 @@ export function useGlobalState() {
           break;
         case "refresh-Error":
           log.debug("Error received:", message.message);
-          toast({
-            title: "There was an error",
-            description: message.message,
-            variant: "destructive"
-          });
+          displayToastMessage(message.message,  "error" );
           setLoadingModelsAndAssistants(false);
           break;
         case "error":
-          toast({
-            title: "There was an error",
-            description: message.message,
-            variant: "destructive"
-          });
+          log.debug("Error received:", message.message);
           setError(message.message);
           setIsLoading(false);
           setOpenAIClientStatus((prev) => ({
@@ -488,5 +482,6 @@ export function useGlobalState() {
     refreshModelsAndAssistants,
     loadingModelsAndAssistants,
     openFile,
+    displayToastMessage
   };
 }

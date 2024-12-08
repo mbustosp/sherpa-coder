@@ -114,6 +114,17 @@ export class VSCodeEventHandler {
     });
 
     switch (message.type) {
+      case "showToast":
+        if (message.payload.toastType === "success") {
+          this.showSuccessMessage(message.payload.message);
+        } else if (message.payload.toastType === "warning") {
+          this.showWarningMessage(message.payload.message);
+        } else if (message.payload.toastType === "error") {
+          this.showErrorMessage(message.payload.message);
+        } else {
+          console.warn("Invalid toast message type received", message.payload.type);
+        }
+        break;
       case "newConversation":
         this.createNewConversation(
           message.payload.selectedAccount,
@@ -322,6 +333,18 @@ export class VSCodeEventHandler {
       log.info("Cancelling current run!");
       this._currentRun.controller.abort();
     }
+  }
+
+  private showSuccessMessage(message: string) {
+    vscode.window.showInformationMessage(message);
+  }
+  
+  private showErrorMessage(message: string) {
+    vscode.window.showErrorMessage(message);
+  }
+  
+  private showWarningMessage(message: string) {
+    vscode.window.showWarningMessage(message);
   }
 
   private async handleChatMessage(payload: {
