@@ -181,8 +181,8 @@ export function MessageInput({
     setFilteredFiles(
       value.trim()
         ? files.filter((file) =>
-            file.toLowerCase().includes(value.toLowerCase())
-          )
+          file.toLowerCase().includes(value.toLowerCase())
+        )
         : files
     );
   };
@@ -278,143 +278,143 @@ export function MessageInput({
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
-            <form onSubmit={(e) => {
+              <form onSubmit={(e) => {
                 e.preventDefault()
                 handleSettingsDialogClose(true)
               }}>
-              <DialogHeader>
-                <DialogTitle>Chat Settings</DialogTitle>
-              </DialogHeader>
-              <Tabs defaultValue="model" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="model">Model</TabsTrigger>
-                  <TabsTrigger value="assistant">
-                    {selectedAssistantDetails.id === "" ? (
-                      <span className="flex items-center">
-                        Assistant{" "}
-                        <span className="text-yellow-500 ml-1">⚠️</span>
-                      </span>
-                    ) : (
-                      "Assistant"
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="model">
-                  <div className="flex justify-end mb-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={refreshModelsAndAssistants}
-                      disabled={loadingModelsAndAssistants}
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "w-3 h-3 mr-1",
-                          loadingModelsAndAssistants && "animate-spin"
-                        )}
-                      />
-                      Refresh
-                    </Button>
-                  </div>
-                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                    {loadingModelsAndAssistants ? (
-                      <div className="flex items-center justify-center h-full">
-                        <span className="text-sm text-muted-foreground">
-                          Loading models...
+                <DialogHeader className="mb-2">
+                  <DialogTitle>Chat Settings</DialogTitle>
+                </DialogHeader>
+                <Tabs defaultValue="model" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="model">Model</TabsTrigger>
+                    <TabsTrigger value="assistant">
+                      {selectedAssistantDetails.id === "" ? (
+                        <span className="flex items-center">
+                          Assistant{" "}
+                          <span className="text-yellow-500 ml-1">⚠️</span>
                         </span>
-                      </div>
-                    ) : (
-                      models.map((model) => (
-                        <div
-                          key={model.id}
+                      ) : (
+                        "Assistant"
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="model">
+                    <div className="flex justify-end mb-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={refreshModelsAndAssistants}
+                        disabled={loadingModelsAndAssistants}
+                      >
+                        <RefreshCw
                           className={cn(
-                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                            "w-3 h-3 mr-1",
+                            loadingModelsAndAssistants && "animate-spin"
                           )}
-                          onClick={() => setTempSelectedModel(model.id)}
-                        >
-                          <Sparkles className="w-4 h-4" />
-                          <span>{model.name}</span>
-                          {tempSelectedModel === model.id && (
-                            <Check className="w-4 h-4 ml-auto" />
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </ScrollArea>
-                </TabsContent>
-                <TabsContent value="assistant">
-                  <div className="flex justify-end mb-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={refreshModelsAndAssistants}
-                      disabled={loadingModelsAndAssistants}
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "w-3 h-3 mr-1",
-                          loadingModelsAndAssistants && "animate-spin"
-                        )}
-                      />
-                      Refresh
-                    </Button>
-                  </div>
-                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
-                    {loadingModelsAndAssistants ? (
-                      <div className="flex items-center justify-center h-full">
-                        <span className="text-sm text-muted-foreground">
-                          Loading assistants...
-                        </span>
-                      </div>
-                    ) : assistants.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full p-4 text-center text-muted-foreground">
-                        <p>No assistants found</p>
-                        <p className="text-sm mt-2">
-                          Create your first assistant in the OpenAI Playground
-                        </p>
-                        <a
-                          href="https://platform.openai.com/playground/assistants"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline mt-2"
-                        >
-                          Go to OpenAI Playground →
-                        </a>
-                      </div>
-                    ) : (
-                      assistants.map((assistant) => (
-                        <div
-                          key={assistant.id}
-                          className={cn(
-                            "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                          )}
-                          onClick={() => setTempSelectedAssistant(assistant.id)}
-                        >
-                          <Bot className="w-4 h-4" />
-                          <span>
-                            {assistant.name ||
-                              `No name given (id: ${assistant.id})`}
+                        />
+                        Refresh
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                      {loadingModelsAndAssistants ? (
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-sm text-muted-foreground">
+                            Loading models...
                           </span>
-                          {tempSelectedAssistant === assistant.id && (
-                            <Check className="w-4 h-4 ml-auto" />
-                          )}
                         </div>
-                      ))
-                    )}
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
-              <DialogFooter className="gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleSettingsDialogClose(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  Save Changes
-                </Button>
-              </DialogFooter>
+                      ) : (
+                        models.map((model) => (
+                          <div
+                            key={model.id}
+                            className={cn(
+                              "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                            )}
+                            onClick={() => setTempSelectedModel(model.id)}
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            <span>{model.name}</span>
+                            {tempSelectedModel === model.id && (
+                              <Check className="w-4 h-4 ml-auto" />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+                  <TabsContent value="assistant">
+                    <div className="flex justify-end mb-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={refreshModelsAndAssistants}
+                        disabled={loadingModelsAndAssistants}
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "w-3 h-3 mr-1",
+                            loadingModelsAndAssistants && "animate-spin"
+                          )}
+                        />
+                        Refresh
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                      {loadingModelsAndAssistants ? (
+                        <div className="flex items-center justify-center h-full">
+                          <span className="text-sm text-muted-foreground">
+                            Loading assistants...
+                          </span>
+                        </div>
+                      ) : assistants.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full p-4 text-center text-muted-foreground">
+                          <p>No assistants found</p>
+                          <p className="text-sm mt-2">
+                            Create your first assistant in the OpenAI Playground
+                          </p>
+                          <a
+                            href="https://platform.openai.com/playground/assistants"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline mt-2"
+                          >
+                            Go to OpenAI Playground →
+                          </a>
+                        </div>
+                      ) : (
+                        assistants.map((assistant) => (
+                          <div
+                            key={assistant.id}
+                            className={cn(
+                              "flex items-center space-x-2 rounded-lg p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                            )}
+                            onClick={() => setTempSelectedAssistant(assistant.id)}
+                          >
+                            <Bot className="w-4 h-4" />
+                            <span>
+                              {assistant.name ||
+                                `No name given (id: ${assistant.id})`}
+                            </span>
+                            {tempSelectedAssistant === assistant.id && (
+                              <Check className="w-4 h-4 ml-auto" />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+                <DialogFooter className="gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSettingsDialogClose(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    Save Changes
+                  </Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
