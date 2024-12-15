@@ -52,6 +52,12 @@ export function ConversationSelector({
     }
   }
 
+  const sortedConversations = [...conversations].sort((a, b) => {
+    const aLastMessage = a.messages[a.messages.length - 1]?.timestamp || a.timestamp
+    const bLastMessage = b.messages[b.messages.length - 1]?.timestamp || b.timestamp
+    return new Date(bLastMessage).getTime() - new Date(aLastMessage).getTime()
+  })
+
   return (
     <div className="flex justify-between items-center w-full flex-wrap min-h-9">
       <DropdownMenu>
@@ -76,12 +82,12 @@ export function ConversationSelector({
             <span>Create New Conversation</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {conversations.length === 0 ? (
+          {sortedConversations.length === 0 ? (
             <div className="p-2 text-sm text-muted-foreground text-center">
               No conversations yet. Create one to get started!
             </div>
           ) : (
-            conversations.map((conversation) => (
+            sortedConversations.map((conversation) => (
               <DropdownMenuItem 
                 key={conversation.id} 
                 onSelect={() => onSelectConversation(conversation)}
