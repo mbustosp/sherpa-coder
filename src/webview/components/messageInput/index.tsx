@@ -278,6 +278,10 @@ export function MessageInput({
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={(e) => {
+                e.preventDefault()
+                handleSettingsDialogClose(true)
+              }}>
               <DialogHeader>
                 <DialogTitle>Chat Settings</DialogTitle>
               </DialogHeader>
@@ -407,10 +411,11 @@ export function MessageInput({
                 >
                   Cancel
                 </Button>
-                <Button onClick={() => handleSettingsDialogClose(true)}>
+                <Button type="submit">
                   Save Changes
                 </Button>
               </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
           <TooltipProvider>
