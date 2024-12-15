@@ -1,11 +1,12 @@
 import * as React from "react"
 import { Card, CardContent } from "@/webview/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/webview/components/ui/tabs"
-import { useGlobalContext } from "../providers/globalStateContext"
+
 import { Header } from "./header"
 import { AccountTab } from "./accountTab"
 import { ChatTab } from "./chatTab"
 import LoadingOverlay from "./accountLoadingOverlay"
+import { useGlobalContext } from "../providers/globalState/globalStateContext"
 
 export default function Main() {
   const {

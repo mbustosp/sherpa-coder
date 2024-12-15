@@ -20,9 +20,6 @@ export class VSCodeEventHandler {
 
   private async initializeWithStoredAccount(): Promise<void> {
     const selectedAccountId = this.accountManager.getSelectedAccount();
-    if (selectedAccountId) {
-      await this.initializeOpenAIClient(selectedAccountId);
-    }
   }
 
   private constructor(context: vscode.ExtensionContext) {
@@ -149,15 +146,12 @@ export class VSCodeEventHandler {
       case "openFile":
         const filePath = vscode.Uri.file(
           vscode.workspace.workspaceFolders?.[0]?.uri.fsPath +
-            "/" +
-            message.payload.filePath
+          "/" +
+          message.payload.filePath
         );
         vscode.workspace.openTextDocument(filePath).then((doc) => {
           vscode.window.showTextDocument(doc);
         });
-        break;
-      case "getApiKey":
-        await this.initializeOpenAIClient(message.payload.accountId);
         break;
       case "selectAccount":
         this.accountManager.setSelectedAccount(message.payload.accountId);
@@ -189,6 +183,9 @@ export class VSCodeEventHandler {
       case "getWorkspaceFiles":
         const files = await this.getWorkspaceFiles();
         this.sendMessageToWebview("updateWorkspaceFiles", { files });
+        break;
+      case "initClient":
+        this.initClient();
         break;
       default:
         log.info(`Unhandled message type: ${message.type}`, message.payload);
@@ -338,11 +335,11 @@ export class VSCodeEventHandler {
   private showSuccessMessage(message: string) {
     vscode.window.showInformationMessage(message);
   }
-  
+
   private showErrorMessage(message: string) {
     vscode.window.showErrorMessage(message);
   }
-  
+
   private showWarningMessage(message: string) {
     vscode.window.showWarningMessage(message);
   }
@@ -355,7 +352,10 @@ export class VSCodeEventHandler {
       id: string;
       name: string;
     };
-    model: string;
+    model: {
+      id: string;
+      name: string;
+    };
     fileContexts: string[];
   }): Promise<void> {
     log.info(`[Chat] Starting chat message handler with payload:`, payload);
@@ -383,7 +383,7 @@ export class VSCodeEventHandler {
         content: payload.message,
         sender: "user",
         timestamp: new Date().toISOString(),
-        modelName: payload.model,
+        modelName: payload.model.name,
         assistantName: payload.assistant.name,
         attachments: payload.fileContexts.map((filePath) => ({
           url: "",
@@ -462,36 +462,40 @@ export class VSCodeEventHandler {
         content: "",
         sender: "assistant",
         timestamp: new Date().toISOString(),
-        modelName: payload.model,
+        modelName: payload.model.name,
         assistantName: payload.assistant.name,
       };
 
       log.info(
-        `[Chat] Starting thread run with assistant: ${payload.assistant}`
+        `[Chat] Starting thread run with assistant: ${JSON.stringify(payload.assistant, null, 4)} and model ${JSON.stringify(payload.model, null, 4)}`
       );
       // Start streaming run
       const run = await this.openaiClient.beta.threads.runs
         .stream(conversation.threadId, {
           assistant_id: payload.assistant.id,
-          model: payload.model,
+          model: payload.model.id,
         })
-        .on("textCreated", () => {
-          // Add message to conversation only after successful connection
-          conversation.messages = [...conversation.messages, assistantMessage];
+        .on("textCreated", () => {    
+          log.debug(`[Stream Event Handler] Text created`)
           this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
         .on("textDelta", (delta, snapshot) => {
-          log.info(`[Chat] Received delta: ${delta.value}`);
+          log.info(`[Stream Event Handler] Received delta: ${delta.value}`);
           assistantMessage.content += delta.value;
           this.sendMessageToWebview("updateMessage", {
             messageId: assistantMessage.id,
             content: assistantMessage.content,
+            modelName: assistantMessage.modelName,
+            assistantName: assistantMessage.assistantName,
+            timestamp: assistantMessage.timestamp,
           });
         })
         .on("toolCallCreated", (toolCall) => {
+          log.debug(`[Stream Event Handler] Tool Call Created`)
           this.sendMessageToWebview("toolCall", { type: toolCall.type });
         })
         .on("toolCallDelta", (delta, snapshot) => {
+          log.debug(`[Stream Event Handler] Tool Call Delta`)
           if (delta.type === "code_interpreter" && delta.code_interpreter) {
             if (delta.code_interpreter.input) {
               assistantMessage.content += `\n\`\`\`\n${delta.code_interpreter.input}\n\`\`\`\n`;
@@ -509,25 +513,47 @@ export class VSCodeEventHandler {
             });
           }
         })
-        .on("end", async () => {
+        .on('runStepDone', (runStep) => {
+          log.debug('[Stream Event Handler] Run step completed', runStep);
+          if (runStep.last_error) {
+            const systemErrorMessage: Message = {
+              id: crypto.randomUUID(),
+              content: `Error: ${runStep.last_error.message}`,
+              sender: "system",
+              timestamp: new Date().toISOString(),
+              modelName: payload.model.name,
+              assistantName: payload.assistant.name,
+            }
+            conversation.messages = [...conversation.messages, systemErrorMessage];
+            this.sendMessageToWebview("updateMessage", {
+              messageId: systemErrorMessage.id,
+              content: systemErrorMessage.content,
+            });
+          }
+        }).on('toolCallDone', () => {
+          log.debug('[Stream Event Handler] Tool call completed')
+        }).on("end", async () => {
+          log.debug("[Stream Event Handler] Stream ended");
           this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
+          if (assistantMessage.content) {
+            conversation.messages = [...conversation.messages, assistantMessage];
+          }
           await this.updateConversation(payload.accountId, conversation);
         })
         .on("error", async (error) => {
-          log.error("[Chat] Error processing chat message:", error);
+          log.error("[Stream Event Handler] Error processing chat message:", error);
 
           // Create and add system error message
           const systemErrorMessage: Message = {
             id: crypto.randomUUID(),
-            content: `Error: ${
-              error instanceof Error
-                ? error.message
-                : "Failed to process chat message"
-            }`,
+            content: `Error: ${error instanceof Error
+              ? error.message
+              : "Failed to process chat message"
+              }`,
             sender: "system",
             timestamp: new Date().toISOString(),
 
-            modelName: payload.model,
+            modelName: payload.model.name,
             assistantName: payload.assistant.name,
           };
 
@@ -549,14 +575,13 @@ export class VSCodeEventHandler {
       // Create and add system error message
       const systemErrorMessage: Message = {
         id: crypto.randomUUID(),
-        content: `Error: ${
-          error instanceof Error
-            ? error.message
-            : "Failed to process chat message"
-        }`,
+        content: `Error: ${error instanceof Error
+          ? error.message
+          : "Failed to process chat message"
+          }`,
         sender: "system",
         timestamp: new Date().toISOString(),
-        modelName: payload.model,
+        modelName: payload.model.name,
         assistantName: payload.assistant.name,
       };
 
@@ -890,10 +915,7 @@ ${content.toString()}
       );
       await this.accountManager.storeAccount(account);
 
-      this.sendMessageToWebview("conversationDeleted", {
-        accountId,
-        conversationId,
-      });
+      this.getAccounts();
     } else {
       log.info(
         `[Conversation Handler] Account not found with ID: ${accountId}`
@@ -911,7 +933,7 @@ ${content.toString()}
   private async getAccounts(): Promise<void> {
     const accounts = this.accountManager.getAccounts();
     const selectedAccountId = this.accountManager.getSelectedAccount();
-    this.initializeWithStoredAccount();
+    //this.initializeWithStoredAccount();
     log.info(`[Account Handler] Getting accounts:`, accounts);
     if (this.webviewView) {
       this.webviewView.webview.postMessage({
@@ -919,6 +941,23 @@ ${content.toString()}
         accounts: accounts,
         selectedAccountId: selectedAccountId,
       });
+    }
+  }
+
+  private async initClient() : Promise<void>{
+    const accounts = this.accountManager.getAccounts();
+    const selectedAccountId = this.accountManager.getSelectedAccount();
+    //this.initializeWithStoredAccount();
+    log.info(`[Account Handler] Getting accounts:`, accounts);
+    if (this.webviewView) {
+      this.webviewView.webview.postMessage({
+        command: "updateAccounts",
+        accounts: accounts,
+        selectedAccountId: selectedAccountId,
+      });
+      if (selectedAccountId !== undefined && selectedAccountId !== null) {
+        this.initializeOpenAIClient(selectedAccountId);
+      }
     }
   }
 
@@ -932,6 +971,7 @@ ${content.toString()}
       selectedAccount.conversations = selectedAccount.conversations || [];
       selectedAccount.conversations.push(conversation);
       this.accountManager.storeAccount(selectedAccount);
+      this.getAccounts();
     }
   }
 

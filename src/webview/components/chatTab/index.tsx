@@ -3,7 +3,7 @@ import { ChatWindow } from "../chatWindow";
 import { MessageInput } from "../messageInput";
 import React from "react";
 import { WelcomeMessage } from "../welcomeMessage";
-import { useGlobalContext } from "@/webview/providers/globalStateContext";
+import { useGlobalContext } from "@/webview/providers/globalState/globalStateContext";
 
 export function ChatTab() {
   const {

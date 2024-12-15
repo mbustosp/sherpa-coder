@@ -6,7 +6,7 @@ import { Separator } from "../ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/webview/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { LocalDataEraser } from "../localDataEraser";
-import { useGlobalContext } from "@/webview/providers/globalStateContext";
+import { useGlobalContext } from "@/webview/providers/globalState/globalStateContext";
 
 export function AccountTab() {
   const {
@@ -14,7 +14,7 @@ export function AccountTab() {
     selectedAccountId,
     newAccountName,
     newAccountApiKey,
-    setSelectedAccountId,
+    selectAccount,
     setNewAccountName,
     setNewAccountApiKey,
     handleCreateAccount,
@@ -47,7 +47,7 @@ export function AccountTab() {
       <AccountSelector
         accounts={accounts}
         selectedAccountId={selectedAccountId}
-        onAccountChange={setSelectedAccountId}
+        onAccountChange={selectAccount}
         onDeleteAccount={handleDeleteAccount}
         disabled={isLoading}
       />

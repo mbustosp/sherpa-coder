@@ -9,44 +9,44 @@ export class AccountManager {
   private readonly SELECTED_ACCOUNT_KEY = "selectedAccount";
 
   private constructor(private context: vscode.ExtensionContext) {
-    log.info('AccountManager instance created');
+    log.debug('AccountManager instance created');
   }
 
   static getInstance(context: vscode.ExtensionContext): AccountManager {
-    log.info('Getting AccountManager instance');
+    log.debug('Getting AccountManager instance');
     if (!AccountManager.instance) {
-      log.info('Creating new AccountManager instance');
+      log.debug('Creating new AccountManager instance');
       AccountManager.instance = new AccountManager(context);
     }
     return AccountManager.instance;
   }
 
   public getSelectedAccount(): string | undefined {
-    log.info('getSelectedAccount called');
+    log.debug('getSelectedAccount called');
     const selectedAccount = this.context.globalState.get<string>(this.SELECTED_ACCOUNT_KEY);
-    log.info(`Getting selected account: ${selectedAccount}`);
+    log.debug(`Getting selected account: ${selectedAccount}`);
     return selectedAccount;
   }
 
   public async setSelectedAccount(accountId: string): Promise<void> {
-    log.info(`Setting selected account to: ${accountId}`);
+    log.debug(`Setting selected account to: ${accountId}`);
     await this.context.globalState.update(this.SELECTED_ACCOUNT_KEY, accountId);
-    log.info('Selected account updated successfully');
+    log.debug('Selected account updated successfully');
   }
 
   async storeAccount(account: Account): Promise<void> {
-    log.info(`storeAccount called for account: ${JSON.stringify(account)}`);
-    log.info(`Storing account with ID: ${account.id}`);
+    log.debug(`storeAccount called for account: ${JSON.stringify(account)}`);
+    log.debug(`Storing account with ID: ${account.id}`);
 
     if (account.apiKey) {
-      log.info('Storing API key in secrets');
+      log.debug('Storing API key in secrets');
       await this.context.secrets.store(
         `openai-key-${account.id}`,
         account.apiKey
       );
     }
 
-    log.info("API key stored in secrets");
+    log.debug("API key stored in secrets");
 
     const accountInfo = {
       id: account.id,
@@ -55,68 +55,68 @@ export class AccountManager {
       models: account.models,
       conversations: account.conversations,
     };
-    log.info("Account info prepared:", accountInfo);
-    log.info(`Account info details: ${JSON.stringify(accountInfo)}`);
+    log.debug("Account info prepared:", accountInfo);
+    log.debug(`Account info details: ${JSON.stringify(accountInfo)}`);
 
     const accounts = this.getAccounts();
-    log.info("Current accounts count:", accounts.length);
-    log.info(`Current accounts: ${JSON.stringify(accounts)}`);
+    log.debug("Current accounts count:", accounts.length);
+    log.debug(`Current accounts: ${JSON.stringify(accounts)}`);
 
     const existingIndex = accounts.findIndex((acc) => acc.id === account.id);
-    log.info(`Existing account index: ${existingIndex}`);
+    log.debug(`Existing account index: ${existingIndex}`);
     if (existingIndex !== -1) {
-      log.info('Updating existing account');
+      log.debug('Updating existing account');
       accounts[existingIndex] = accountInfo;
     } else {
-      log.info('Adding new account');
+      log.debug('Adding new account');
       accounts.push(accountInfo);
     }
 
     await this.context.globalState.update(this.ACCOUNTS_KEY, accounts);
-    log.info("Account successfully stored in global state");
+    log.debug("Account successfully stored in global state");
   }
 
   async getApiKey(accountId: string): Promise<string | undefined> {
-    log.info(`getApiKey called for account: ${accountId}`);
+    log.debug(`getApiKey called for account: ${accountId}`);
     const apiKey = await this.context.secrets.get(`openai-key-${accountId}`);
-    log.info(`API key ${apiKey ? 'found' : 'not found'} for account: ${accountId}`);
+    log.debug(`API key ${apiKey ? 'found' : 'not found'} for account: ${accountId}`);
     return apiKey;
   }
 
   getAccounts(): Account[] {
-    log.info('getAccounts called');
+    log.debug('getAccounts called');
     const accounts = this.context.globalState.get(this.ACCOUNTS_KEY, []);
-    log.info(`Retrieved ${accounts.length} accounts`);
+    log.debug(`Retrieved ${accounts.length} accounts`);
     return accounts;
   }
 
   async deleteAccount(accountId: string): Promise<void> {
-    log.info(`deleteAccount called for ID: ${accountId}`);
+    log.debug(`deleteAccount called for ID: ${accountId}`);
     await this.context.secrets.delete(`openai-key-${accountId}`);
-    log.info('API key deleted from secrets');
+    log.debug('API key deleted from secrets');
     
     const accounts = this.getAccounts();
     const filteredAccounts = accounts.filter((acc) => acc.id !== accountId);
-    log.info(`Removed account. Accounts count before: ${accounts.length}, after: ${filteredAccounts.length}`);
+    log.debug(`Removed account. Accounts count before: ${accounts.length}, after: ${filteredAccounts.length}`);
     
     await this.context.globalState.update(this.ACCOUNTS_KEY, filteredAccounts);
-    log.info('Account successfully deleted from global state');
+    log.debug('Account successfully deleted from global state');
   }
 
   async deleteAllAccounts(): Promise<void> {
-    log.info('deleteAllAccounts called');
+    log.debug('deleteAllAccounts called');
     const accounts = this.getAccounts();
     
     // Delete all API keys from secrets
     for (const account of accounts) {
       await this.context.secrets.delete(`openai-key-${account.id}`);
     }
-    log.info('All API keys deleted from secrets');
+    log.debug('All API keys deleted from secrets');
 
     // Clear all accounts from global state
     await this.context.globalState.update(this.ACCOUNTS_KEY, []);
     // Clear selected account
     await this.context.globalState.update(this.SELECTED_ACCOUNT_KEY, undefined);
-    log.info('All accounts and selected account cleared from global state');
+    log.debug('All accounts and selected account cleared from global state');
   }
 }
