@@ -321,6 +321,13 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     dispatch({ type: 'SET_OPEN_AI_CLIENT_STATUS', payload: { status: 'connected' } });
                     dispatch({ type: 'SET_IS_LOADING', payload: false });
                     break;
+                case 'openAIClient-Error':
+                    dispatch({
+                        type: 'SET_OPEN_AI_CLIENT_STATUS',
+                        payload: { status: 'error', error: message.message },
+                    });
+                    dispatch({ type: 'SET_IS_LOADING', payload: false });
+                    break;
                 case 'assistants-Retrieved':
                     dispatch({
                         type: 'SET_OPEN_AI_CLIENT_STATUS',

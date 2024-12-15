@@ -254,7 +254,10 @@ export class VSCodeEventHandler {
     const apiKey = await this.accountManager.getApiKey(accountId);
     if (!apiKey) {
       log.info(`[OpenAI Client] No API key found for account ID: ${accountId}`);
-      this.sendMessageToWebview("openAIClient-Error", {});
+      this.sendMessageToWebview("openAIClient-Error", {
+        message:
+          "No API key provided for the account.",
+      });
       return;
     }
 
@@ -474,7 +477,7 @@ export class VSCodeEventHandler {
           model: payload.model.id,
         })
         .on("textCreated", () => {
-          log.debug(`[Stream Event Handler] Text created`)
+          log.debug(`[Stream Event Handler] Text created`);
           this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
         .on("textDelta", (delta, snapshot) => {
@@ -489,11 +492,11 @@ export class VSCodeEventHandler {
           });
         })
         .on("toolCallCreated", (toolCall) => {
-          log.debug(`[Stream Event Handler] Tool Call Created`)
+          log.debug(`[Stream Event Handler] Tool Call Created`);
           this.sendMessageToWebview("toolCall", { type: toolCall.type });
         })
         .on("toolCallDelta", (delta, snapshot) => {
-          log.debug(`[Stream Event Handler] Tool Call Delta`)
+          log.debug(`[Stream Event Handler] Tool Call Delta`);
           if (delta.type === "code_interpreter" && delta.code_interpreter) {
             if (delta.code_interpreter.input) {
               assistantMessage.content += `\n\`\`\`\n${delta.code_interpreter.input}\n\`\`\`\n`;
@@ -521,7 +524,7 @@ export class VSCodeEventHandler {
               timestamp: new Date().toISOString(),
               modelName: payload.model.name,
               assistantName: payload.assistant.name,
-            }
+            };
             conversation.messages = [...conversation.messages, systemErrorMessage];
             this.sendMessageToWebview("updateMessage", {
               messageId: systemErrorMessage.id,
@@ -529,7 +532,7 @@ export class VSCodeEventHandler {
             });
           }
         }).on('toolCallDone', () => {
-          log.debug('[Stream Event Handler] Tool call completed')
+          log.debug('[Stream Event Handler] Tool call completed');
         }).on("end", async () => {
           log.debug("[Stream Event Handler] Stream ended");
           this.sendMessageToWebview("updateTypingStatus", { isTyping: false });
@@ -977,6 +980,7 @@ ${content.toString()}
     log.info(`[Account Handler] Creating new account:`, account);
     try {
       await this.accountManager.storeAccount(account);
+      this.getAccounts();
     } catch (error) {
       log.error(`[Account Handler] Error creating account:`, error);
     } // Implement the logic to handle creating a new account
