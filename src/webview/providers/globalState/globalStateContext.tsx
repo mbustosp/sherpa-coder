@@ -3,6 +3,7 @@ import { reducer, initialState } from './reducer';
 import { sendMessage } from '@/core/VSCodeAPI';
 import { Account, ContextItem, Conversation, GlobalActions, GlobalState, Message } from '@/types';
 import log from '@/utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * The context for the global state.
@@ -71,7 +72,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (!state.newAccountName || !state.newAccountApiKey) return;
 
         const newAccount: Account = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name: state.newAccountName,
             apiKey: state.newAccountApiKey,
             conversations: [],
@@ -225,7 +226,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const selectedAccount = state.accounts.find(acc => acc.id === state.selectedAccountId);
         if (!selectedAccount) return;
 
-        const newId = crypto.randomUUID();
+        const newId = uuidv4();
         const newConversation: Conversation = {
             id: newId,
             title: title || `Conversation ${newId}`,

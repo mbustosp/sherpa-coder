@@ -62,8 +62,8 @@ export type Action =
  */
 export function reducer(state: GlobalState, action: Action): GlobalState {
   log.debug('[Reducer] Action:', action.type);
-  
-  
+
+
   switch (action.type) {
     case 'UPDATE_ACCOUNTS':
       return {
@@ -189,24 +189,25 @@ export function reducer(state: GlobalState, action: Action): GlobalState {
         return state;
       }
 
-    const updatedMessages = state.currentConversation.messages.find(msg => msg.id === messageId)
-      ? state.currentConversation.messages.map((msg) =>
+      const updatedMessages = state.currentConversation.messages.find(msg => msg.id === messageId)
+        ? state.currentConversation.messages.map((msg) =>
           msg.id === messageId
             ? {
-                ...msg,
-                content,
-                modelName,
-                assistantName,
-                timestamp,
-              }
+              ...msg,
+              content,
+              modelName,
+              assistantName,
+              timestamp: timestamp.toString(),
+            }
             : msg
         )
-      : [...state.currentConversation.messages, {
+        : [...state.currentConversation.messages, {
           id: messageId,
           content,
           modelName,
           assistantName,
-          timestamp,
+          timestamp: timestamp.toString(),
+          sender: 'assistant' as const,
         }];
 
       return {

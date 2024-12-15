@@ -12,18 +12,16 @@ export class VSCodeEventHandler {
   private static instance: VSCodeEventHandler;
   private accountManager: AccountManager;
   private disposables: vscode.Disposable[] = [];
-  private webviewView: vscode.WebviewView | undefined;
+  private webviewView: vscode.WebviewPanel | undefined;
   private openaiClient: OpenAI | null = null;
   private _currentAssistant: string | undefined;
   private _currentModel: string | undefined;
   private _currentRun: { controller: AbortController } | undefined;
 
-  private async initializeWithStoredAccount(): Promise<void> {
-    const selectedAccountId = this.accountManager.getSelectedAccount();
-  }
-
   private constructor(context: vscode.ExtensionContext) {
     this.accountManager = AccountManager.getInstance(context);
+
+    // @ts-ignore
     vscode.window.onDidChangeActiveColorTheme(() => {
       if (this.webviewView) {
         this.updateWebviewTheme(this.webviewView);
@@ -60,6 +58,7 @@ export class VSCodeEventHandler {
     ]);
 
     const processDirectory = async (dir: string) => {
+      // @ts-ignore
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
@@ -84,9 +83,9 @@ export class VSCodeEventHandler {
     return files;
   }
 
-  private updateWebviewTheme(webviewView: vscode.WebviewView) {
-    const isDark =
-      vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+  private updateWebviewTheme(webviewView: vscode.WebviewPanel) {
+    // @ts-ignore
+    const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
     webviewView.webview.postMessage({
       type: "theme-update",
       theme: isDark ? "dark" : "light",
@@ -199,6 +198,9 @@ export class VSCodeEventHandler {
         return;
       }
 
+      let gptModels;
+      let assistants = [];
+
       log.info(`[OpenAI Client] Fetching assistants list`);
       const assistantsResponse = await this.openaiClient.beta.assistants.list();
       log.info(
@@ -206,16 +208,12 @@ export class VSCodeEventHandler {
       );
       assistants = assistantsResponse.data;
 
-      let gptModels;
-
       log.info(`[OpenAI Client] Fetching models list`);
       const modelsResponse = await this.openaiClient.models.list();
       gptModels = modelsResponse.data.filter((model) =>
         model.id.startsWith("gpt-")
       );
       log.info(`[OpenAI Client] Found ${gptModels.length} GPT models`);
-
-      throw new Error("Bang!");
 
       log.info(`[OpenAI Client] Sending lists to webview`);
       if (this.webviewView) {
@@ -475,7 +473,7 @@ export class VSCodeEventHandler {
           assistant_id: payload.assistant.id,
           model: payload.model.id,
         })
-        .on("textCreated", () => {    
+        .on("textCreated", () => {
           log.debug(`[Stream Event Handler] Text created`)
           this.sendMessageToWebview("updateTypingStatus", { isTyping: true });
         })
@@ -621,6 +619,7 @@ export class VSCodeEventHandler {
 
     try {
       log.info("[EventHandler] Creating .sherpa-files directory");
+      // @ts-ignore
       await vscode.workspace.fs.createDirectory(vscode.Uri.file(sherpaDir));
 
       log.info("[EventHandler] Generating markdown content");
@@ -628,6 +627,7 @@ export class VSCodeEventHandler {
 
       log.info("[EventHandler] Writing markdown file");
       const markdownContent = Buffer.from(markdown);
+      // @ts-ignore
       await vscode.workspace.fs.writeFile(markdownUri, markdownContent);
 
       log.info("[EventHandler] Getting file stats");
@@ -662,7 +662,7 @@ export class VSCodeEventHandler {
 
     const rootPath = workspaceFolders[0].uri.fsPath;
     const absolutePath = vscode.Uri.file(path.join(rootPath, filePath));
-
+    // @ts-ignore 
     const fileContent = await vscode.workspace.fs.readFile(absolutePath);
     const fileName = path.basename(filePath);
     const fileExt = path.extname(fileName).toLowerCase().slice(1);
@@ -754,6 +754,7 @@ Below is the directory structure of the project source code. Each file section t
 
     const getFiles = async (dir: string, prefix = ""): Promise<string> => {
       let content = "";
+      // @ts-ignore
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
@@ -779,6 +780,7 @@ Below is the directory structure of the project source code. Each file section t
     markdown += "\n## Source Code\n\n";
 
     const processFile = async (filePath: string): Promise<void> => {
+      // @ts-ignore
       const fileContent = await vscode.workspace.fs.readFile(
         vscode.Uri.file(filePath)
       );
@@ -789,6 +791,7 @@ Below is the directory structure of the project source code. Each file section t
       if (isBinary) {
         return;
       }
+      // @ts-ignore
       const content = await vscode.workspace.fs.readFile(
         vscode.Uri.file(filePath)
       );
@@ -810,6 +813,7 @@ ${content.toString()}
     };
 
     const processDirectory = async (dir: string): Promise<void> => {
+      // @ts-ignore
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
@@ -849,7 +853,7 @@ ${content.toString()}
         date: new Date().toISOString().split("T")[0],
         messages: [],
         lastMessage: "",
-        threadId: null,
+        threadId: undefined,
       };
     }
 
@@ -944,7 +948,7 @@ ${content.toString()}
     }
   }
 
-  private async initClient() : Promise<void>{
+  private async initClient(): Promise<void> {
     const accounts = this.accountManager.getAccounts();
     const selectedAccountId = this.accountManager.getSelectedAccount();
     //this.initializeWithStoredAccount();
@@ -990,7 +994,7 @@ ${content.toString()}
   }
 
   public registerWebviewMessageHandler(
-    webviewView: vscode.WebviewView,
+    webviewView: vscode.WebviewPanel,
     context: vscode.ExtensionContext
   ): void {
     this.webviewView = webviewView;
