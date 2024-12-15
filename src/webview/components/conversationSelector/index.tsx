@@ -134,29 +134,34 @@ export function ConversationSelector({
 
       <Dialog open={isNewConversationDialogOpen} onOpenChange={setIsNewConversationDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Conversation</DialogTitle>
-            <DialogDescription>
-              Enter a title for your new conversation.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Title
-              </Label>
-              <Input
-                id="name"
-                value={newConversationTitle}
-                onChange={(e) => setNewConversationTitle(e.target.value)}
-                className="col-span-3"
-              />
+          <form onSubmit={(e) => {
+            e.preventDefault()
+            handleNewConversation()
+          }}>
+            <DialogHeader>
+              <DialogTitle>New Conversation</DialogTitle>
+              <DialogDescription>
+                Enter a title for your new conversation.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Title
+                </Label>
+                <Input
+                  id="name"
+                  value={newConversationTitle}
+                  onChange={(e) => setNewConversationTitle(e.target.value)}
+                  className="col-span-3"
+                />
+              </div>
             </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsNewConversationDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleNewConversation}>Create</Button>
-          </DialogFooter>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsNewConversationDialogOpen(false)}>Cancel</Button>
+              <Button type="submit">Create</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       </div>
