@@ -10,10 +10,10 @@
 		"esModuleInterop": true,
 		"lib": ["DOM", "ES2020"],
 		"baseUrl": ".",
-		"types": ["jest", "node", "@testing-library/jest-dom"],
+		"types": ["jest", "node", "@testing-library/jest-dom", "vscode"],
 		"paths": {
 		"@/*": ["./src/*"]
-		}
+		},
 	},
 	"include": ["src/**/*"]
 }

@@ -12,7 +12,7 @@ export class VSCodeEventHandler {
   private static instance: VSCodeEventHandler;
   private accountManager: AccountManager;
   private disposables: vscode.Disposable[] = [];
-  private webviewView: vscode.WebviewPanel | undefined;
+  private webviewView: vscode.WebviewView | undefined;
   private openaiClient: OpenAI | null = null;
   private _currentAssistant: string | undefined;
   private _currentModel: string | undefined;
@@ -21,12 +21,13 @@ export class VSCodeEventHandler {
   private constructor(context: vscode.ExtensionContext) {
     this.accountManager = AccountManager.getInstance(context);
 
-    // @ts-ignore
-    vscode.window.onDidChangeActiveColorTheme(() => {
-      if (this.webviewView) {
-        this.updateWebviewTheme(this.webviewView);
-      }
-    });
+    this.disposables.push(
+      vscode.window.onDidChangeActiveColorTheme(() => {
+        if (this.webviewView) {
+          this.updateWebviewTheme(this.webviewView);
+        }
+      })
+    );
   }
 
   private async getWorkspaceFiles(): Promise<string[]> {
@@ -58,7 +59,6 @@ export class VSCodeEventHandler {
     ]);
 
     const processDirectory = async (dir: string) => {
-      // @ts-ignore
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
@@ -83,9 +83,9 @@ export class VSCodeEventHandler {
     return files;
   }
 
-  private updateWebviewTheme(webviewView: vscode.WebviewPanel) {
-    // @ts-ignore
-    const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+  private updateWebviewTheme(webviewView: vscode.WebviewView) {
+    const isDark =
+      vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
     webviewView.webview.postMessage({
       type: "theme-update",
       theme: isDark ? "dark" : "light",
@@ -619,7 +619,6 @@ export class VSCodeEventHandler {
 
     try {
       log.info("[EventHandler] Creating .sherpa-files directory");
-      // @ts-ignore
       await vscode.workspace.fs.createDirectory(vscode.Uri.file(sherpaDir));
 
       log.info("[EventHandler] Generating markdown content");
@@ -627,7 +626,6 @@ export class VSCodeEventHandler {
 
       log.info("[EventHandler] Writing markdown file");
       const markdownContent = Buffer.from(markdown);
-      // @ts-ignore
       await vscode.workspace.fs.writeFile(markdownUri, markdownContent);
 
       log.info("[EventHandler] Getting file stats");
@@ -662,7 +660,7 @@ export class VSCodeEventHandler {
 
     const rootPath = workspaceFolders[0].uri.fsPath;
     const absolutePath = vscode.Uri.file(path.join(rootPath, filePath));
-    // @ts-ignore 
+
     const fileContent = await vscode.workspace.fs.readFile(absolutePath);
     const fileName = path.basename(filePath);
     const fileExt = path.extname(fileName).toLowerCase().slice(1);
@@ -754,7 +752,6 @@ Below is the directory structure of the project source code. Each file section t
 
     const getFiles = async (dir: string, prefix = ""): Promise<string> => {
       let content = "";
-      // @ts-ignore
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
@@ -780,7 +777,6 @@ Below is the directory structure of the project source code. Each file section t
     markdown += "\n## Source Code\n\n";
 
     const processFile = async (filePath: string): Promise<void> => {
-      // @ts-ignore
       const fileContent = await vscode.workspace.fs.readFile(
         vscode.Uri.file(filePath)
       );
@@ -791,7 +787,6 @@ Below is the directory structure of the project source code. Each file section t
       if (isBinary) {
         return;
       }
-      // @ts-ignore
       const content = await vscode.workspace.fs.readFile(
         vscode.Uri.file(filePath)
       );
@@ -813,7 +808,6 @@ ${content.toString()}
     };
 
     const processDirectory = async (dir: string): Promise<void> => {
-      // @ts-ignore
       const entries = await vscode.workspace.fs.readDirectory(
         vscode.Uri.file(dir)
       );
@@ -858,7 +852,7 @@ ${content.toString()}
     }
 
     // Verify thread exists if we have one
-    if (conversation.threadId && this.openaiClient) {
+    if (conversation && conversation.threadId && this.openaiClient) {
       try {
         await this.openaiClient.beta.threads.retrieve(conversation.threadId);
       } catch (error) {
@@ -994,7 +988,7 @@ ${content.toString()}
   }
 
   public registerWebviewMessageHandler(
-    webviewView: vscode.WebviewPanel,
+    webviewView: vscode.WebviewView,
     context: vscode.ExtensionContext
   ): void {
     this.webviewView = webviewView;
