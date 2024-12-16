@@ -4,6 +4,12 @@ All notable changes to the "sherpa-coder" extension will be documented in this f
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## [1.1.1] - 2024-12-16
+
+### Fixed
+
+- 🐛 Fixed a UI invalid state issue that occurred when deleting the last remaining account.
+
 ## [1.1.0] - 2024-12-16
 
 ### Added

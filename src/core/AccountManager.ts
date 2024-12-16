@@ -100,9 +100,15 @@ export class AccountManager {
     log.debug(`Removed account. Accounts count before: ${accounts.length}, after: ${filteredAccounts.length}`);
     
     await this.context.globalState.update(this.ACCOUNTS_KEY, filteredAccounts);
+    
+    const selectedAccount = await this.context.globalState.get(this.SELECTED_ACCOUNT_KEY);
+    if (selectedAccount === accountId) {
+      await this.context.globalState.update(this.SELECTED_ACCOUNT_KEY, undefined);
+      log.debug('Selected account cleared from global state');
+    }
+    
     log.debug('Account successfully deleted from global state');
   }
-
   async deleteAllAccounts(): Promise<void> {
     log.debug('deleteAllAccounts called');
     const accounts = this.getAccounts();

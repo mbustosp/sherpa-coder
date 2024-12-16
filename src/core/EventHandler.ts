@@ -989,6 +989,7 @@ ${content.toString()}
   private async deleteAccount(accountId: string): Promise<void> {
     log.info(`[Account Handler] Deleting account with ID: ${accountId}`);
     await this.accountManager.deleteAccount(accountId);
+    await this.getAccounts();
   }
 
   public registerWebviewMessageHandler(

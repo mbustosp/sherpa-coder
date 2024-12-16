@@ -15,6 +15,14 @@ describe('Global State Reducer', () => {
 
     expect(newState.accounts).toEqual(mockAccounts);
     expect(newState.selectedAccountId).toBe('1');
+
+    const nullState = reducer(initialState, {
+      type: 'UPDATE_ACCOUNTS',
+      payload: { accounts: mockAccounts, selectedAccountId: null }
+    });
+
+    expect(nullState.accounts).toEqual(mockAccounts);
+    expect(nullState.selectedAccountId).toBeNull();
   });
 
   test('SET_SELECTED_ACCOUNT_ID', () => {

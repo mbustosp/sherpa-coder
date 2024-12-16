@@ -72,7 +72,7 @@ export function reducer(state: GlobalState, action: Action): GlobalState {
         selectedAccountId:
           action.payload.selectedAccountId !== undefined
             ? action.payload.selectedAccountId
-            : state.selectedAccountId,
+            : null,
         isLoading: false,
       };
     case 'SET_SELECTED_ACCOUNT_ID':
