@@ -61,7 +61,7 @@
     "@types/node": "20.x",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/testing-library__jest-dom": "^6.0.0",
-    "@types/vscode": "^1.95.0",
+    "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
     "@typescript-eslint/parser": "^8.7.0",
     "@vscode/test-cli": "^0.0.10",
