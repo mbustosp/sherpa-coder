@@ -2,7 +2,7 @@
   "name": "sherpa-coder",
   "displayName": "Sherpa Coder",
   "description": "Sherpa Coder is a VSCode extension that helps you code faster and more efficiently.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "engines": {
     "vscode": "^1.90.0"
   },
